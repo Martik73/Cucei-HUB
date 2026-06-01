@@ -1,0 +1,40 @@
+# Herramientas de desarrollo / IDE agents
+.claude/
+.windsurf/
+.cursor/
+.continue/
+.augment/
+.roo/
+.trae/
+.vibe/
+.goose/
+.kiro/
+.mux/
+.pi/
+.adal/
+.agents/
+.bob/
+.codebuddy/
+.commandcode/
+.cortex/
+.crush/
+.factory/
+.iflow/
+.junie/
+.kilocode/
+.kode/
+.mcpjam/
+.neovate/
+.openhands/
+.pochi/
+.qoder/
+.qwen/
+.zencoder/
+
+# Claude Code skills
+skills/
+skills-lock.json
+
+# OS
+.DS_Store
+Thumbs.db

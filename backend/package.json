@@ -1,19 +1,39 @@
 {
-  "name": "backend",
+  "name": "cucei-hub-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "API REST para CUCEI HUB - Red social académica del CUCEI, UdeG",
+  "main": "src/server.js",
+  "type": "commonjs",
   "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "cucei",
+    "hub",
+    "social",
+    "academico",
+    "udg"
+  ],
+  "author": "Equipo CUCEI HUB",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "pg": "^8.20.0"
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "express-validator": "^7.2.0",
+    "firebase-admin": "^12.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.2.0",
+    "mongoose": "^8.5.1",
+    "morgan": "^1.10.0",
+    "pg": "^8.12.0",
+    "socket.io": "^4.7.5",
+    "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
   }
 }

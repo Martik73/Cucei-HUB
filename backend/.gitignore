@@ -1,0 +1,29 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno (nunca commitear)
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Build
+dist/
+build/
+
+# Credenciales Firebase (si se descarga el JSON)
+*-firebase-adminsdk-*.json
+serviceAccountKey.json
+
+# Base de datos local de desarrollo
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db
