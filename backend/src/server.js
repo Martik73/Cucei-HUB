@@ -14,6 +14,7 @@ const { initSockets } = require('./sockets');
 const authRoutes    = require('./routes/auth.routes');
 const postRoutes    = require('./routes/post.routes');
 const messageRoutes = require('./routes/message.routes');
+const usersRoutes   = require('./routes/users.routes');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -45,6 +46,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth',     authRoutes);
 app.use('/api/posts',    postRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/users',    usersRoutes);
 
 // ─── Manejo de rutas no encontradas ──────────────────────────────────────────
 app.use((req, res) => {

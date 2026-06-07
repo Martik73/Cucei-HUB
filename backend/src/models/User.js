@@ -117,6 +117,36 @@ class User {
   }
 
   /**
+   * Busca usuarios por nombre o email, excluyendo al usuario actual.
+   * Search users by name or email, excluding the requesting user.
+   *
+   * @param {string} query
+   * @param {number} excludeUserId
+   * @param {number} [limit=20]
+   * @returns {Promise<Array<{ id, nombre, carrera, email }>>}
+   */
+  static async search(query, excludeUserId, limit = 20) {
+    const db = getDb();
+    const q = `%${query.toLowerCase()}%`;
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, nombre, carrera, email
+         FROM users
+         WHERE (LOWER(nombre) LIKE ? OR LOWER(email) LIKE ?)
+           AND id != ?
+           AND isActive = 1
+         ORDER BY nombre ASC
+         LIMIT ?`,
+        [q, q, excludeUserId, limit],
+        (err, rows) => {
+          if (err) return reject(err);
+          resolve(rows);
+        }
+      );
+    });
+  }
+
+  /**
    * Retorna el usuario sin campos sensibles (password).
    * Return user object without sensitive fields.
    *

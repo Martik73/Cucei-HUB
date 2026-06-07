@@ -111,6 +111,13 @@ export interface Conversation {
   unreadCount: number;
 }
 
+export interface SearchUser {
+  id: number;
+  nombre: string;
+  carrera: string;
+  email: string;
+}
+
 // ─── Paginación ────────────────────────────────────────────────────────────
 
 export interface PaginatedResponse<T> {
