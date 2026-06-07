@@ -58,6 +58,23 @@ class User {
   }
 
   /**
+   * Busca un usuario por su ID de SQLite.
+   * Find a user by SQLite row ID.
+   *
+   * @param {number} id
+   * @returns {Promise<IUser|null>}
+   */
+  static async findById(id) {
+    const db = getDb();
+    return new Promise((resolve, reject) => {
+      db.get('SELECT * FROM users WHERE id = ?', [id], (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      });
+    });
+  }
+
+  /**
    * Busca un usuario por email.
    * Find a user by email address.
    *

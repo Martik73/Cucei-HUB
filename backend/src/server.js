@@ -12,8 +12,7 @@ const { initSockets } = require('./sockets');
 
 // Rutas
 const authRoutes = require('./routes/auth.routes');
-// TODO: importar más rutas conforme se implementen
-// const postRoutes = require('./routes/post.routes');
+const postRoutes = require('./routes/post.routes');
 // const messageRoutes = require('./routes/message.routes');
 
 const app = express();
@@ -44,7 +43,7 @@ app.get('/health', (req, res) => {
 
 // ─── Rutas API ────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
-// app.use('/api/posts', postRoutes);
+app.use('/api/posts', postRoutes);
 // app.use('/api/messages', messageRoutes);
 
 // ─── Manejo de rutas no encontradas ──────────────────────────────────────────
