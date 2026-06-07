@@ -185,6 +185,57 @@ class Post {
   }
 
   /**
+   * Retorna las publicaciones paginadas de un autor específico, respetando la
+   * visibilidad por carrera del usuario que las solicita.
+   * Return paginated posts from a specific author, respecting carrera visibility rules.
+   *
+   * @param {{ authorId: number, currentUserId: number, currentUserCarrera: string, page?: number, limit?: number }}
+   * @returns {Promise<{ posts: IPost[], total: number, page: number, totalPages: number }>}
+   */
+  static async findByUser({ authorId, currentUserId, currentUserCarrera, page = 1, limit = 20 }) {
+    const db = getDb();
+    const offset = (page - 1) * limit;
+
+    const where = `p.authorId = ? AND (p.type = 'general' OR (p.type = 'carrera' AND p.carrera = ?))`;
+    const whereParams = [authorId, currentUserCarrera];
+
+    const countSql = `SELECT COUNT(*) AS total FROM posts p WHERE ${where}`;
+
+    const dataSql = `
+      SELECT
+        p.*,
+        u.nombre         AS authorNombre,
+        u.carrera        AS authorCarrera,
+        u.profilePicture AS authorPicture,
+        (SELECT COUNT(*) FROM reactions r  WHERE r.postId  = p.id)                   AS reactionCount,
+        (SELECT COUNT(*) FROM comments  c  WHERE c.postId  = p.id)                   AS commentCount,
+        (SELECT r2.type  FROM reactions r2 WHERE r2.postId = p.id AND r2.userId = ?) AS userReaction
+      FROM posts p
+      JOIN users u ON u.id = p.authorId
+      WHERE ${where}
+      ORDER BY p.createdAt DESC
+      LIMIT ? OFFSET ?`;
+
+    const dataParams = [currentUserId, ...whereParams, limit, offset];
+
+    return new Promise((resolve, reject) => {
+      db.get(countSql, whereParams, (err, countRow) => {
+        if (err) return reject(err);
+        db.all(dataSql, dataParams, (err2, rows) => {
+          if (err2) return reject(err2);
+          const total = countRow.total;
+          resolve({
+            posts: rows,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit),
+          });
+        });
+      });
+    });
+  }
+
+  /**
    * Elimina una publicación (CASCADE borra comentarios y reacciones).
    * Delete a post — CASCADE removes its comments and reactions.
    *

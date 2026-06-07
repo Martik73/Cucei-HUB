@@ -118,6 +118,19 @@ export interface SearchUser {
   email: string;
 }
 
+// ─── Perfil público ────────────────────────────────────────────────────────
+
+export interface PublicUser {
+  id: number;
+  nombre: string;
+  email: string;
+  carrera: string;
+  semestre: number;
+  bio: string;
+  profilePicture: string;
+  createdAt: string;
+}
+
 // ─── Paginación ────────────────────────────────────────────────────────────
 
 export interface PaginatedResponse<T> {

@@ -166,4 +166,58 @@ const getProfile = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile };
+/**
+ * PUT /api/auth/profile
+ * Actualiza el perfil del usuario autenticado (nombre, bio, semestre).
+ * Update the authenticated user's profile.
+ *
+ * Headers: Authorization: Bearer <token>
+ * Body: { nombre?, bio?, semestre? }
+ * Response 200: { message, user }
+ *
+ * @type {import('express').RequestHandler}
+ */
+const updateProfile = async (req, res) => {
+  const { nombre, bio, semestre } = req.body;
+  const userId = req.user.uid;
+
+  const updates = {};
+
+  if (nombre !== undefined) {
+    const trimmed = String(nombre).trim();
+    if (trimmed.length < 2 || trimmed.length > 100) {
+      return res.status(400).json({ message: 'El nombre debe tener entre 2 y 100 caracteres' });
+    }
+    updates.nombre = trimmed;
+  }
+  if (bio !== undefined) {
+    if (String(bio).length > 300) {
+      return res.status(400).json({ message: 'La bio no puede superar 300 caracteres' });
+    }
+    updates.bio = bio;
+  }
+  if (semestre !== undefined) {
+    const s = Number(semestre);
+    if (!Number.isInteger(s) || s < 1 || s > 12) {
+      return res.status(400).json({ message: 'El semestre debe ser entre 1 y 12' });
+    }
+    updates.semestre = s;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ message: 'No hay campos para actualizar' });
+  }
+
+  try {
+    const updated = await User.update(userId, updates);
+    return res.status(200).json({
+      message: 'Perfil actualizado exitosamente',
+      user: User.toPublic(updated),
+    });
+  } catch (error) {
+    console.error('Error en updateProfile:', error);
+    return res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { register, login, getProfile, updateProfile };

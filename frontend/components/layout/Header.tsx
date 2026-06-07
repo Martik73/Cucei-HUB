@@ -48,7 +48,7 @@ export default function Header() {
                 <p className="text-xs text-muted-foreground mt-1 truncate">{user.email}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/profile')}>
+              <DropdownMenuItem onClick={() => router.push(`/profile/${user.id}`)}>
                 <UserIcon className="size-4" />
                 Perfil
               </DropdownMenuItem>

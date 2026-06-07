@@ -1,15 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { MessageSquare } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
 import ConversationList, { type ChatPartner } from '@/components/messages/ConversationList';
 import ChatWindow from '@/components/messages/ChatWindow';
-import { MessageSquare } from 'lucide-react';
+import { getUserProfile } from '@/lib/users';
+
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ');
+}
 
 function MessagesContent() {
   const [activePartner, setActivePartner] = useState<ChatPartner | null>(null);
-  const [showList,      setShowList]      = useState(true); // mobile: toggle list ↔ chat
+  const [showList,      setShowList]      = useState(true);
+
+  const searchParams    = useSearchParams();
+  const initialWithId   = useRef(Number(searchParams.get('with')) || null);
+
+  // Open conversation directly when arriving via ?with=<userId>
+  useEffect(() => {
+    const id = initialWithId.current;
+    if (!id) return;
+
+    getUserProfile(id)
+      .then((profile) => {
+        setActivePartner({ id: profile.id, nombre: profile.nombre, carrera: profile.carrera, email: profile.email });
+        setShowList(false);
+      })
+      .catch(() => {/* silently ignore — user may not exist */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSelect = (partner: ChatPartner) => {
     setActivePartner(partner);
@@ -59,16 +82,13 @@ function MessagesContent() {
   );
 }
 
-// cn helper inline (avoids extra import at page level)
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
-}
-
 export default function MessagesPage() {
   return (
     <ProtectedRoute>
       <AppLayout>
-        <MessagesContent />
+        <Suspense fallback={<div className="flex-1" />}>
+          <MessagesContent />
+        </Suspense>
       </AppLayout>
     </ProtectedRoute>
   );

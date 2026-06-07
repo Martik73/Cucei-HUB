@@ -147,6 +147,68 @@ class User {
   }
 
   /**
+   * Busca un usuario activo por ID y retorna solo campos públicos.
+   * Find an active user by ID and return only public fields.
+   *
+   * @param {number} id
+   * @returns {Promise<Pick<IUser, 'id'|'nombre'|'email'|'carrera'|'semestre'|'bio'|'profilePicture'|'createdAt'>|null>}
+   */
+  static async findPublicById(id) {
+    const db = getDb();
+    return new Promise((resolve, reject) => {
+      db.get(
+        `SELECT id, nombre, email, carrera, semestre, bio, profilePicture, createdAt
+         FROM users
+         WHERE id = ? AND isActive = 1`,
+        [id],
+        (err, row) => {
+          if (err) return reject(err);
+          resolve(row || null);
+        }
+      );
+    });
+  }
+
+  /**
+   * Actualiza campos editables del perfil de un usuario.
+   * Update editable profile fields for a user.
+   *
+   * @param {number} id
+   * @param {{ nombre?: string, bio?: string, semestre?: number }} data
+   * @returns {Promise<IUser>}
+   */
+  static async update(id, { nombre, bio, semestre }) {
+    const db = getDb();
+    const sets = ['updatedAt = CURRENT_TIMESTAMP'];
+    const params = [];
+
+    if (nombre !== undefined) {
+      sets.push('nombre = ?');
+      params.push(nombre.trim());
+    }
+    if (bio !== undefined) {
+      sets.push('bio = ?');
+      params.push(bio);
+    }
+    if (semestre !== undefined) {
+      sets.push('semestre = ?');
+      params.push(semestre);
+    }
+
+    params.push(id);
+
+    return new Promise((resolve, reject) => {
+      db.run(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, params, function (err) {
+        if (err) return reject(err);
+        db.get('SELECT * FROM users WHERE id = ?', [id], (err2, row) => {
+          if (err2) return reject(err2);
+          resolve(row);
+        });
+      });
+    });
+  }
+
+  /**
    * Retorna el usuario sin campos sensibles (password).
    * Return user object without sensitive fields.
    *

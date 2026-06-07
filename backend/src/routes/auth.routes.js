@@ -2,7 +2,7 @@ const { Router } = require('express');
 const { body } = require('express-validator');
 const { verifyToken } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/errorHandler');
-const { register, login, getProfile } = require('../controllers/auth.controller');
+const { register, login, getProfile, updateProfile } = require('../controllers/auth.controller');
 
 const router = Router();
 
@@ -68,5 +68,32 @@ router.post(
  * Headers: Authorization: Bearer <token>
  */
 router.get('/me', verifyToken, getProfile);
+
+/**
+ * PUT /api/auth/profile
+ * Actualiza el perfil del usuario autenticado.
+ * Update the authenticated user's profile.
+ *
+ * Headers: Authorization: Bearer <token>
+ * Body: { nombre?, bio?, semestre? }
+ */
+router.put(
+  '/profile',
+  verifyToken,
+  [
+    body('nombre')
+      .optional()
+      .trim()
+      .isLength({ min: 2, max: 100 }).withMessage('El nombre debe tener entre 2 y 100 caracteres'),
+    body('bio')
+      .optional()
+      .isLength({ max: 300 }).withMessage('La bio no puede superar 300 caracteres'),
+    body('semestre')
+      .optional()
+      .isInt({ min: 1, max: 12 }).withMessage('El semestre debe ser entre 1 y 12'),
+  ],
+  handleValidationErrors,
+  updateProfile
+);
 
 module.exports = router;

@@ -14,12 +14,13 @@ import type { LoginData, RegisterData, User } from '@/types';
 // ─── Tipos del contexto ────────────────────────────────────────────────────
 
 interface AuthContextValue {
-  user:     User | null;
-  token:    string | null;
-  loading:  boolean;
-  login:    (data: LoginData)    => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
-  logout:   () => void;
+  user:       User | null;
+  token:      string | null;
+  loading:    boolean;
+  login:      (data: LoginData)    => Promise<void>;
+  register:   (data: RegisterData) => Promise<void>;
+  logout:     () => void;
+  updateUser: (user: User)         => void;
 }
 
 // ─── Contexto ──────────────────────────────────────────────────────────────
@@ -75,8 +76,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   }, [router]);
 
+  const updateUser = useCallback((u: User) => setUser(u), []);
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
