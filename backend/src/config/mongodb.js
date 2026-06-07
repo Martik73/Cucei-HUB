@@ -100,6 +100,39 @@ const initPostTables = () => {
 };
 
 /**
+ * Crea la tabla de mensajes y sus índices.
+ * Create messages table and indexes.
+ *
+ * @returns {Promise<void>}
+ */
+const initMessageTables = () => {
+  return new Promise((resolve, reject) => {
+    db.exec(
+      `
+      CREATE TABLE IF NOT EXISTS messages (
+        id         INTEGER  PRIMARY KEY AUTOINCREMENT,
+        senderId   INTEGER  NOT NULL,
+        receiverId INTEGER  NOT NULL,
+        content    TEXT     NOT NULL,
+        read       INTEGER  DEFAULT 0,
+        createdAt  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (senderId)   REFERENCES users(id),
+        FOREIGN KEY (receiverId) REFERENCES users(id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_messages_sender   ON messages(senderId);
+      CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiverId);
+      CREATE INDEX IF NOT EXISTS idx_messages_pair     ON messages(senderId, receiverId, createdAt);
+      `,
+      (err) => {
+        if (err) reject(err);
+        else resolve();
+      }
+    );
+  });
+};
+
+/**
  * Conecta a SQLite y crea las tablas si no existen.
  * Connect to SQLite and initialize tables.
  *
@@ -118,6 +151,7 @@ const connectMongoDB = async () => {
         try {
           await initTables();
           await initPostTables();
+          await initMessageTables();
           resolve();
         } catch (tableErr) {
           reject(tableErr);

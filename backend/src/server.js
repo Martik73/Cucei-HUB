@@ -11,9 +11,9 @@ const { globalErrorHandler } = require('./middleware/errorHandler');
 const { initSockets } = require('./sockets');
 
 // Rutas
-const authRoutes = require('./routes/auth.routes');
-const postRoutes = require('./routes/post.routes');
-// const messageRoutes = require('./routes/message.routes');
+const authRoutes    = require('./routes/auth.routes');
+const postRoutes    = require('./routes/post.routes');
+const messageRoutes = require('./routes/message.routes');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -42,9 +42,9 @@ app.get('/health', (req, res) => {
 });
 
 // ─── Rutas API ────────────────────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
-app.use('/api/posts', postRoutes);
-// app.use('/api/messages', messageRoutes);
+app.use('/api/auth',     authRoutes);
+app.use('/api/posts',    postRoutes);
+app.use('/api/messages', messageRoutes);
 
 // ─── Manejo de rutas no encontradas ──────────────────────────────────────────
 app.use((req, res) => {
