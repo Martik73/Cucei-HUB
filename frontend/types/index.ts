@@ -49,6 +49,12 @@ export type PostType     = 'general' | 'carrera';
 export type PostCategory = 'duda' | 'evento' | 'trabajo' | 'general';
 export type ReactionType = 'like' | 'love' | 'celebrate';
 
+export interface ReactionCounts {
+  like: number;
+  love: number;
+  celebrate: number;
+}
+
 export interface Post {
   id: number;
   authorId: number;
@@ -58,11 +64,12 @@ export interface Post {
   carrera: string | null;
   createdAt: string;
   updatedAt: string;
-  // Joined fields
+  // Joined fields from feed query
   authorNombre?: string;
   authorCarrera?: string;
   authorPicture?: string;
   reactionCount?: number;
+  reactions?: ReactionCounts;
   commentCount?: number;
   userReaction?: ReactionType | null;
 }
