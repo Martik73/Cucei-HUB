@@ -118,6 +118,37 @@ export interface SearchUser {
   email: string;
 }
 
+// ─── Evaluación Docente ────────────────────────────────────────────────────
+
+export interface Professor {
+  id: number;
+  nombre: string;
+  departamento: string;
+  avgRating: number;
+  totalEvaluations: number;
+  createdAt: string;
+  subjects?: Subject[];
+}
+
+export interface Subject {
+  id: number;
+  nombre: string;
+  carrera: string;
+}
+
+export interface Evaluation {
+  id: number;
+  professorId: number;
+  subjectId: number;
+  studentId: number;
+  rating: number;
+  comment: string;
+  semestre: number;
+  createdAt: string;
+  studentNombre: string;
+  subjectNombre: string;
+}
+
 // ─── Perfil público ────────────────────────────────────────────────────────
 
 export interface PublicUser {

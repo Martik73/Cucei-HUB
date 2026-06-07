@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquare, User } from 'lucide-react';
+import { Home, MessageSquare, User, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
 const STATIC_NAV = [
-  { href: '/',         label: 'Feed',     icon: Home },
-  { href: '/messages', label: 'Mensajes', icon: MessageSquare },
+  { href: '/',           label: 'Feed',       icon: Home         },
+  { href: '/messages',   label: 'Mensajes',   icon: MessageSquare },
+  { href: '/professors', label: 'Profesores', icon: GraduationCap },
 ] as const;
 
 export default function Sidebar() {
@@ -16,7 +17,7 @@ export default function Sidebar() {
   const { user } = useAuth();
 
   const profileHref = user?.id ? `/profile/${user.id}` : null;
-  const isProfileActive = pathname.startsWith('/profile');
+  const isProfileActive    = pathname.startsWith('/profile');
 
   return (
     <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-border bg-background py-4">

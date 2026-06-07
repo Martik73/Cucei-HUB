@@ -133,6 +133,70 @@ const initMessageTables = () => {
 };
 
 /**
+ * Crea las tablas del módulo de evaluación docente.
+ * Create professor evaluation tables.
+ *
+ * @returns {Promise<void>}
+ */
+const initEvaluationTables = () => {
+  return new Promise((resolve, reject) => {
+    db.run('PRAGMA foreign_keys = ON', (pragmaErr) => {
+      if (pragmaErr) return reject(pragmaErr);
+      db.exec(
+        `
+        CREATE TABLE IF NOT EXISTS professors (
+          id               INTEGER  PRIMARY KEY AUTOINCREMENT,
+          nombre           TEXT     NOT NULL,
+          departamento     TEXT     NOT NULL DEFAULT '',
+          avgRating        REAL     DEFAULT 0,
+          totalEvaluations INTEGER  DEFAULT 0,
+          createdAt        DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS subjects (
+          id      INTEGER PRIMARY KEY AUTOINCREMENT,
+          nombre  TEXT    NOT NULL,
+          carrera TEXT    NOT NULL DEFAULT ''
+        );
+
+        CREATE TABLE IF NOT EXISTS professor_subjects (
+          professorId INTEGER NOT NULL,
+          subjectId   INTEGER NOT NULL,
+          PRIMARY KEY (professorId, subjectId),
+          FOREIGN KEY (professorId) REFERENCES professors(id) ON DELETE CASCADE,
+          FOREIGN KEY (subjectId)   REFERENCES subjects(id)   ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS evaluations (
+          id          INTEGER  PRIMARY KEY AUTOINCREMENT,
+          professorId INTEGER  NOT NULL,
+          subjectId   INTEGER  NOT NULL,
+          studentId   INTEGER  NOT NULL,
+          rating      INTEGER  NOT NULL,
+          comment     TEXT     DEFAULT '',
+          semestre    INTEGER  NOT NULL,
+          createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (professorId, subjectId, studentId),
+          FOREIGN KEY (professorId) REFERENCES professors(id) ON DELETE CASCADE,
+          FOREIGN KEY (subjectId)   REFERENCES subjects(id),
+          FOREIGN KEY (studentId)   REFERENCES users(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_evaluations_prof    ON evaluations(professorId);
+        CREATE INDEX IF NOT EXISTS idx_evaluations_student ON evaluations(studentId);
+        CREATE INDEX IF NOT EXISTS idx_evaluations_subject ON evaluations(subjectId);
+        CREATE INDEX IF NOT EXISTS idx_professors_nombre   ON professors(nombre);
+        `,
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  });
+};
+
+/**
  * Conecta a SQLite y crea las tablas si no existen.
  * Connect to SQLite and initialize tables.
  *
@@ -152,6 +216,7 @@ const connectMongoDB = async () => {
           await initTables();
           await initPostTables();
           await initMessageTables();
+          await initEvaluationTables();
           resolve();
         } catch (tableErr) {
           reject(tableErr);
