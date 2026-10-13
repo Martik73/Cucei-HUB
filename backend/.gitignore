@@ -27,3 +27,6 @@ serviceAccountKey.json
 # OS
 .DS_Store
 Thumbs.db
+# Archivos subidos por usuarios (no commitear PDFs ni binarios)
+uploads/materials/*
+!uploads/materials/.gitkeep

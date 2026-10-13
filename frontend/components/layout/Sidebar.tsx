@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquare, User, GraduationCap } from 'lucide-react';
+import { Home, MessageSquare, User, GraduationCap, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
 const STATIC_NAV = [
-  { href: '/',           label: 'Feed',       icon: Home         },
-  { href: '/messages',   label: 'Mensajes',   icon: MessageSquare },
-  { href: '/professors', label: 'Profesores', icon: GraduationCap },
+  { href: '/',             label: 'Feed',         icon: Home         },
+  { href: '/messages',     label: 'Mensajes',     icon: MessageSquare },
+  { href: '/communities',  label: 'Comunidades',  icon: BookOpen     },
+  { href: '/professors',   label: 'Profesores',   icon: GraduationCap },
 ] as const;
 
 export default function Sidebar() {
@@ -28,7 +29,7 @@ export default function Sidebar() {
             href={href}
             className={cn(
               'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-              pathname === href
+              pathname === href || (href !== '/' && pathname.startsWith(href))
                 ? 'bg-accent text-accent-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
             )}

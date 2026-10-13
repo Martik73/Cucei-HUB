@@ -170,3 +170,53 @@ export interface PaginatedResponse<T> {
   page: number;
   totalPages: number;
 }
+
+// ─── Comunidades / Material Educativo ──────────────────────────────────────
+
+export interface Community {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  materia: string;
+  tema: string;
+  carrera: string;
+  creatorId: number;
+  creatorNombre: string;
+  memberCount: number;
+  materialCount: number;
+  isMember: boolean;
+  createdAt: string;
+}
+
+export type MaterialType = 'pdf' | 'youtube';
+
+export interface Material {
+  id: number;
+  communityId: number;
+  uploaderId: number;
+  titulo: string;
+  descripcion: string;
+  tipo: MaterialType;
+  fileUrl: string | null;
+  youtubeUrl: string | null;
+  uploaderNombre: string;
+  uploaderPicture: string;
+  createdAt: string;
+}
+
+export interface CommunityMessage {
+  id: number;
+  communityId: number;
+  userId: number;
+  content: string;
+  userNombre: string;
+  userPicture: string;
+  createdAt: string;
+}
+
+export interface MessagesResponse {
+  messages: CommunityMessage[];
+  total: number;
+  page: number;
+  totalPages: number;
+}

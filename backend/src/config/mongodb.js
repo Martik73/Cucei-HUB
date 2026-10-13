@@ -197,6 +197,76 @@ const initEvaluationTables = () => {
 };
 
 /**
+ * Crea las tablas del módulo de comunidades/material educativo.
+ */
+const initCommunityTables = () => {
+  return new Promise((resolve, reject) => {
+    db.run('PRAGMA foreign_keys = ON', (pragmaErr) => {
+      if (pragmaErr) return reject(pragmaErr);
+      db.exec(
+        `
+        CREATE TABLE IF NOT EXISTS communities (
+          id          INTEGER  PRIMARY KEY AUTOINCREMENT,
+          nombre      TEXT     NOT NULL,
+          descripcion TEXT     DEFAULT '',
+          materia     TEXT     DEFAULT '',
+          tema        TEXT     DEFAULT '',
+          carrera     TEXT     DEFAULT '',
+          creatorId   INTEGER  NOT NULL,
+          createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (creatorId) REFERENCES users(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS community_members (
+          communityId INTEGER  NOT NULL,
+          userId      INTEGER  NOT NULL,
+          joinedAt    DATETIME DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (communityId, userId),
+          FOREIGN KEY (communityId) REFERENCES communities(id) ON DELETE CASCADE,
+          FOREIGN KEY (userId)      REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS materials (
+          id          INTEGER  PRIMARY KEY AUTOINCREMENT,
+          communityId INTEGER  NOT NULL,
+          uploaderId  INTEGER  NOT NULL,
+          titulo      TEXT     NOT NULL,
+          descripcion TEXT     DEFAULT '',
+          tipo        TEXT     NOT NULL CHECK(tipo IN ('pdf', 'youtube')),
+          fileUrl     TEXT     DEFAULT NULL,
+          youtubeUrl  TEXT     DEFAULT NULL,
+          createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (communityId) REFERENCES communities(id) ON DELETE CASCADE,
+          FOREIGN KEY (uploaderId)  REFERENCES users(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS community_messages (
+          id          INTEGER  PRIMARY KEY AUTOINCREMENT,
+          communityId INTEGER  NOT NULL,
+          userId      INTEGER  NOT NULL,
+          content     TEXT     NOT NULL,
+          createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (communityId) REFERENCES communities(id) ON DELETE CASCADE,
+          FOREIGN KEY (userId)      REFERENCES users(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_communities_carrera  ON communities(carrera);
+        CREATE INDEX IF NOT EXISTS idx_communities_materia  ON communities(materia);
+        CREATE INDEX IF NOT EXISTS idx_comm_members_comm    ON community_members(communityId);
+        CREATE INDEX IF NOT EXISTS idx_comm_members_user    ON community_members(userId);
+        CREATE INDEX IF NOT EXISTS idx_materials_comm       ON materials(communityId);
+        CREATE INDEX IF NOT EXISTS idx_comm_msgs_comm       ON community_messages(communityId);
+        `,
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  });
+};
+
+/**
  * Conecta a SQLite y crea las tablas si no existen.
  * Connect to SQLite and initialize tables.
  *
@@ -217,6 +287,7 @@ const connectMongoDB = async () => {
           await initPostTables();
           await initMessageTables();
           await initEvaluationTables();
+          await initCommunityTables();
           resolve();
         } catch (tableErr) {
           reject(tableErr);
