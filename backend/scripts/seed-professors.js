@@ -6,7 +6,15 @@
  */
 
 require('dotenv').config();
-const { connectMongoDB, getDb } = require('../src/config/mongodb');
+const mongoose = require('mongoose');
+const { connectMongoDB } = require('../src/config/mongodb');
+
+// Registrar modelos en el orden correcto
+require('../src/models/User');
+require('../src/models/Subject');
+require('../src/models/Evaluation');
+const Professor = require('../src/models/Professor');
+const Subject   = require('../src/models/Subject');
 
 const CARRERA = 'Ingeniería en Computación';
 
@@ -38,68 +46,37 @@ const PROFESSORS = [
   { nombre: 'M.C. Javier Castro Díaz',    departamento: 'Computación',                subjectIndices: [10, 11]  },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const run = (db, sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) return reject(err);
-      resolve(this.lastID);
-    });
-  });
-
-const get = (db, sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) return reject(err);
-      resolve(row || null);
-    });
-  });
-
-// ─── Seed ─────────────────────────────────────────────────────────────────────
-
 async function seed() {
   await connectMongoDB();
-  const db = getDb();
 
   console.log('\n📚 Insertando materias…');
   const subjectIds = [];
 
   for (const s of SUBJECTS) {
-    const existing = await get(db, 'SELECT id FROM subjects WHERE nombre = ? AND carrera = ?', [s.nombre, s.carrera]);
-    if (existing) {
-      subjectIds.push(existing.id);
+    let doc = await mongoose.model('Subject').findOne({ nombre: s.nombre, carrera: s.carrera }).lean();
+    if (doc) {
+      subjectIds.push(doc._id);
       console.log(`  ✓ Ya existe: ${s.nombre}`);
     } else {
-      const id = await run(db, 'INSERT INTO subjects (nombre, carrera) VALUES (?, ?)', [s.nombre, s.carrera]);
-      subjectIds.push(id);
-      console.log(`  + Creada: ${s.nombre} (id ${id})`);
+      doc = await Subject.create({ nombre: s.nombre, carrera: s.carrera });
+      subjectIds.push(doc.id);
+      console.log(`  + Creada: ${s.nombre} (id ${doc.id})`);
     }
   }
 
   console.log('\n👨‍🏫 Insertando profesores…');
 
   for (const p of PROFESSORS) {
-    let profId;
-    const existing = await get(db, 'SELECT id FROM professors WHERE nombre = ?', [p.nombre]);
-
-    if (existing) {
-      profId = existing.id;
+    let doc = await mongoose.model('Professor').findOne({ nombre: p.nombre }).lean();
+    if (doc) {
       console.log(`  ✓ Ya existe: ${p.nombre}`);
+      const ids = p.subjectIndices.map((i) => subjectIds[i]).filter(Boolean);
+      await Professor.linkSubjects(doc._id.toString(), ids.map(String));
     } else {
-      profId = await run(db, 'INSERT INTO professors (nombre, departamento) VALUES (?, ?)', [p.nombre, p.departamento]);
-      console.log(`  + Creado: ${p.nombre} (id ${profId})`);
-    }
-
-    // Link subjects (idempotent)
-    for (const idx of p.subjectIndices) {
-      const sid = subjectIds[idx];
-      if (!sid) continue;
-      await run(
-        db,
-        'INSERT OR IGNORE INTO professor_subjects (professorId, subjectId) VALUES (?, ?)',
-        [profId, sid]
-      );
+      const created = await Professor.create({ nombre: p.nombre, departamento: p.departamento });
+      console.log(`  + Creado: ${p.nombre} (id ${created.id})`);
+      const ids = p.subjectIndices.map((i) => subjectIds[i]).filter(Boolean);
+      await Professor.linkSubjects(created.id, ids.map(String));
     }
   }
 

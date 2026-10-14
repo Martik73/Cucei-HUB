@@ -1,155 +1,118 @@
-const { getDb } = require('../config/mongodb');
+const mongoose = require('mongoose');
+const { Schema, Types: { ObjectId } } = mongoose;
 
-/**
- * @typedef {Object} IMessage
- * @property {number}  id
- * @property {number}  senderId
- * @property {number}  receiverId
- * @property {string}  content
- * @property {number}  read       - 0 = no leído, 1 = leído
- * @property {string}  createdAt
- */
+const MessageSchema = new Schema({
+  senderId:   { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  receiverId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  content:    { type: String, required: true },
+  read:       { type: Boolean, default: false },
+}, { timestamps: true });
 
-class Message {
-  /**
-   * Crea y persiste un nuevo mensaje.
-   * Create and persist a new message.
-   *
-   * @param {{ senderId: number, receiverId: number, content: string }}
-   * @returns {Promise<IMessage>}
-   */
-  static async create({ senderId, receiverId, content }) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.run(
-        'INSERT INTO messages (senderId, receiverId, content) VALUES (?, ?, ?)',
-        [senderId, receiverId, content.trim()],
-        function (err) {
-          if (err) return reject(err);
-          db.get('SELECT * FROM messages WHERE id = ?', [this.lastID], (err2, row) => {
-            if (err2) return reject(err2);
-            resolve(row);
-          });
-        }
-      );
-    });
-  }
+MessageSchema.index({ senderId: 1 });
+MessageSchema.index({ receiverId: 1 });
+MessageSchema.index({ senderId: 1, receiverId: 1, createdAt: 1 });
 
-  /**
-   * Retorna el historial paginado entre dos usuarios, ordenado ASC (más antiguo primero).
-   * Return paginated conversation history between two users, ASC order.
-   *
-   * @param {number} userAId
-   * @param {number} userBId
-   * @param {number} page
-   * @param {number} limit
-   * @returns {Promise<{ messages: IMessage[], total: number }>}
-   */
-  static async findConversation(userAId, userBId, page = 1, limit = 20) {
-    const db  = getDb();
-    const off = (page - 1) * limit;
+const withParticipants = (matchCond, skip, limit) => [
+  { $match: matchCond },
+  { $sort: { createdAt: 1 } },
+  { $skip: skip },
+  { $limit: limit },
+  { $lookup: { from: 'users', localField: 'senderId',   foreignField: '_id', as: 'senderDoc'   } },
+  { $unwind: '$senderDoc' },
+  { $lookup: { from: 'users', localField: 'receiverId', foreignField: '_id', as: 'receiverDoc' } },
+  { $unwind: '$receiverDoc' },
+  { $addFields: {
+    id:              { $toString: '$_id' },
+    senderId:        { $toString: '$senderId' },
+    receiverId:      { $toString: '$receiverId' },
+    senderNombre:    '$senderDoc.nombre',
+    senderPicture:   '$senderDoc.profilePicture',
+    receiverNombre:  '$receiverDoc.nombre',
+    receiverPicture: '$receiverDoc.profilePicture',
+  }},
+  { $project: { _id: 0, __v: 0, senderDoc: 0, receiverDoc: 0 } },
+];
 
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT COUNT(*) AS total FROM messages
-         WHERE (senderId = ? AND receiverId = ?) OR (senderId = ? AND receiverId = ?)`,
-        [userAId, userBId, userBId, userAId],
-        (err, countRow) => {
-          if (err) return reject(err);
+MessageSchema.statics.create = async function ({ senderId, receiverId, content }) {
+  const doc = await new this({ senderId, receiverId, content: content.trim() }).save();
+  const plain = doc.toObject();
+  plain.id         = plain._id.toString();
+  plain.senderId   = plain.senderId.toString();
+  plain.receiverId = plain.receiverId.toString();
+  delete plain._id;
+  delete plain.__v;
+  return plain;
+};
 
-          db.all(
-            `SELECT
-               m.*,
-               s.nombre         AS senderNombre,
-               s.profilePicture AS senderPicture,
-               r.nombre         AS receiverNombre,
-               r.profilePicture AS receiverPicture
-             FROM messages m
-             JOIN users s ON s.id = m.senderId
-             JOIN users r ON r.id = m.receiverId
-             WHERE (m.senderId = ? AND m.receiverId = ?)
-                OR (m.senderId = ? AND m.receiverId = ?)
-             ORDER BY m.createdAt ASC
-             LIMIT ? OFFSET ?`,
-            [userAId, userBId, userBId, userAId, limit, off],
-            (err2, rows) => {
-              if (err2) return reject(err2);
-              resolve({ messages: rows, total: countRow.total });
-            }
-          );
-        }
-      );
-    });
-  }
+MessageSchema.statics.findConversation = async function (userAId, userBId, page = 1, limit = 20) {
+  const oidA = new ObjectId(userAId);
+  const oidB = new ObjectId(userBId);
+  const matchCond = {
+    $or: [
+      { senderId: oidA, receiverId: oidB },
+      { senderId: oidB, receiverId: oidA },
+    ],
+  };
+  const offset = (page - 1) * limit;
+  const [total, messages] = await Promise.all([
+    this.countDocuments(matchCond),
+    this.aggregate(withParticipants(matchCond, offset, limit)),
+  ]);
+  return { messages, total };
+};
 
-  /**
-   * Marca como leídos todos los mensajes de senderId hacia receiverId.
-   * Mark all messages from senderId to receiverId as read.
-   *
-   * @param {number} senderId   - quien envió los mensajes
-   * @param {number} receiverId - quien los está leyendo
-   * @returns {Promise<{ changed: number }>}
-   */
-  static async markAsRead(senderId, receiverId) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.run(
-        'UPDATE messages SET read = 1 WHERE senderId = ? AND receiverId = ? AND read = 0',
-        [senderId, receiverId],
-        function (err) {
-          if (err) return reject(err);
-          resolve({ changed: this.changes });
-        }
-      );
-    });
-  }
+MessageSchema.statics.markAsRead = async function (senderId, receiverId) {
+  const result = await this.updateMany(
+    { senderId: new ObjectId(senderId), receiverId: new ObjectId(receiverId), read: false },
+    { read: true }
+  );
+  return { changed: result.modifiedCount };
+};
 
-  /**
-   * Retorna la lista de conversaciones únicas del usuario con el último mensaje
-   * y el conteo de mensajes no leídos.
-   * Return unique conversations for a user with last message and unread count.
-   *
-   * @param {number} userId
-   * @returns {Promise<Array>}
-   */
-  static async getConversations(userId) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      // Subconsulta: por cada conversación (partner único), obtener el ID del último mensaje
-      // Subquery: for each unique partner, get the ID of the latest message
-      db.all(
-        `SELECT
-           u.id             AS userId,
-           u.nombre,
-           u.email,
-           u.profilePicture,
-           u.carrera,
-           m.id             AS lastMessageId,
-           m.content        AS lastContent,
-           m.senderId       AS lastSenderId,
-           m.read           AS lastRead,
-           m.createdAt      AS lastCreatedAt,
-           (SELECT COUNT(*) FROM messages
-            WHERE senderId = u.id AND receiverId = ? AND read = 0) AS unreadCount
-         FROM (
-           SELECT
-             CASE WHEN senderId = ? THEN receiverId ELSE senderId END AS partnerId,
-             MAX(id) AS lastId
-           FROM messages
-           WHERE senderId = ? OR receiverId = ?
-           GROUP BY CASE WHEN senderId = ? THEN receiverId ELSE senderId END
-         ) conv
-         JOIN messages m ON m.id = conv.lastId
-         JOIN users   u ON u.id = conv.partnerId
-         ORDER BY m.createdAt DESC`,
-        [userId, userId, userId, userId, userId],
-        (err, rows) => {
-          if (err) return reject(err);
-          resolve(rows);
-        }
-      );
-    });
-  }
-}
+MessageSchema.statics.getConversations = async function (userId) {
+  const oid = new ObjectId(userId);
+  return this.aggregate([
+    { $match: { $or: [{ senderId: oid }, { receiverId: oid }] } },
+    { $sort: { createdAt: -1 } },
+    { $addFields: {
+      partnerId: { $cond: { if: { $eq: ['$senderId', oid] }, then: '$receiverId', else: '$senderId' } },
+    }},
+    { $group: {
+      _id:            '$partnerId',
+      lastMessageId:  { $first: '$_id' },
+      lastContent:    { $first: '$content' },
+      lastSenderId:   { $first: '$senderId' },
+      lastRead:       { $first: '$read' },
+      lastCreatedAt:  { $first: '$createdAt' },
+    }},
+    { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'partnerDoc' } },
+    { $unwind: '$partnerDoc' },
+    { $lookup: {
+      from: 'messages',
+      let: { pid: '$_id' },
+      pipeline: [
+        { $match: { $expr: { $and: [
+          { $eq: ['$senderId', '$$pid'] },
+          { $eq: ['$receiverId', oid] },
+          { $eq: ['$read', false] },
+        ] } } },
+        { $count: 'n' },
+      ],
+      as: 'unreadDocs',
+    }},
+    { $addFields: {
+      userId:        { $toString: '$_id' },
+      nombre:        '$partnerDoc.nombre',
+      email:         '$partnerDoc.email',
+      profilePicture:'$partnerDoc.profilePicture',
+      carrera:       '$partnerDoc.carrera',
+      lastMessageId: { $toString: '$lastMessageId' },
+      lastSenderId:  { $toString: '$lastSenderId' },
+      unreadCount:   { $ifNull: [{ $arrayElemAt: ['$unreadDocs.n', 0] }, 0] },
+    }},
+    { $sort: { lastCreatedAt: -1 } },
+    { $project: { _id: 0, __v: 0, partnerDoc: 0, unreadDocs: 0 } },
+  ]);
+};
 
-module.exports = Message;
+module.exports = mongoose.model('Message', MessageSchema);

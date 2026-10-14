@@ -1,228 +1,88 @@
-const { getDb } = require('../config/mongodb');
+const mongoose = require('mongoose');
+const { Schema } = mongoose;
 const { CARRERAS } = require('../utils/validators');
 
-/**
- * @typedef {Object} IUser
- * @property {number}  id              - ID autoincremental de SQLite
- * @property {string}  firebaseUid     - UID de Firebase Auth (llave única)
- * @property {string}  email           - Correo @alumnos.udg.mx
- * @property {string}  password        - Hash bcrypt de la contraseña
- * @property {string}  nombre          - Nombre completo
- * @property {string}  carrera         - Carrera registrada
- * @property {number}  semestre        - Semestre actual (1-12)
- * @property {string}  bio             - Descripción del perfil (opcional)
- * @property {string}  profilePicture  - URL de foto de perfil (opcional)
- * @property {'student'|'admin'} rol   - Rol del usuario
- * @property {number}  isActive        - 1 activo / 0 desactivado
- * @property {string}  createdAt
- * @property {string}  updatedAt
- */
-
-class User {
-  /**
-   * Crea un nuevo usuario en SQLite.
-   * Create a new user row in SQLite.
-   *
-   * @param {Omit<IUser, 'id'|'createdAt'|'updatedAt'>} data
-   * @returns {Promise<IUser>}
-   */
-  static async create(data) {
-    const db = getDb();
-    const {
-      firebaseUid,
-      email,
-      password,
-      nombre,
-      carrera,
-      semestre,
-      bio = '',
-      profilePicture = '',
-      rol = 'student',
-    } = data;
-
-    return new Promise((resolve, reject) => {
-      db.run(
-        `INSERT INTO users
-           (firebaseUid, email, password, nombre, carrera, semestre, bio, profilePicture, rol)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [firebaseUid, email.toLowerCase(), password, nombre.trim(), carrera, semestre, bio, profilePicture, rol],
-        function (err) {
-          if (err) return reject(err);
-          db.get('SELECT * FROM users WHERE id = ?', [this.lastID], (err2, row) => {
-            if (err2) return reject(err2);
-            resolve(row);
-          });
-        }
-      );
-    });
+const toPlain = (doc) => {
+  if (!doc) return null;
+  const o = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
+  o.id = (o._id || o.id)?.toString();
+  delete o._id;
+  delete o.__v;
+  for (const k of Object.keys(o)) {
+    if (o[k] instanceof mongoose.Types.ObjectId) o[k] = o[k].toString();
   }
+  return o;
+};
 
-  /**
-   * Busca un usuario por su ID de SQLite.
-   * Find a user by SQLite row ID.
-   *
-   * @param {number} id
-   * @returns {Promise<IUser|null>}
-   */
-  static async findById(id) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.get('SELECT * FROM users WHERE id = ?', [id], (err, row) => {
-        if (err) return reject(err);
-        resolve(row || null);
-      });
-    });
-  }
+const UserSchema = new Schema({
+  firebaseUid:    { type: String, unique: true, required: true },
+  email:          { type: String, unique: true, required: true, lowercase: true },
+  password:       { type: String, required: true },
+  nombre:         { type: String, required: true, trim: true },
+  carrera:        { type: String, required: true },
+  semestre:       { type: Number, required: true },
+  bio:            { type: String, default: '' },
+  profilePicture: { type: String, default: '' },
+  rol:            { type: String, enum: ['student', 'admin'], default: 'student' },
+  isActive:       { type: Boolean, default: true },
+}, { timestamps: true });
 
-  /**
-   * Busca un usuario por email.
-   * Find a user by email address.
-   *
-   * @param {string} email
-   * @returns {Promise<IUser|null>}
-   */
-  static async findByEmail(email) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.get(
-        'SELECT * FROM users WHERE email = ?',
-        [email.toLowerCase()],
-        (err, row) => {
-          if (err) return reject(err);
-          resolve(row || null);
-        }
-      );
-    });
-  }
+UserSchema.statics.create = async function (data) {
+  const doc = await new this(data).save();
+  return toPlain(doc);
+};
 
-  /**
-   * Busca un usuario por su UID de Firebase.
-   * Find a user by Firebase UID.
-   *
-   * @param {string} uid
-   * @returns {Promise<IUser|null>}
-   */
-  static async findByFirebaseUid(uid) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.get(
-        'SELECT * FROM users WHERE firebaseUid = ?',
-        [uid],
-        (err, row) => {
-          if (err) return reject(err);
-          resolve(row || null);
-        }
-      );
-    });
-  }
+UserSchema.statics.findById = async function (id) {
+  const doc = await this.findOne({ _id: id });
+  return toPlain(doc);
+};
 
-  /**
-   * Busca usuarios por nombre o email, excluyendo al usuario actual.
-   * Search users by name or email, excluding the requesting user.
-   *
-   * @param {string} query
-   * @param {number} excludeUserId
-   * @param {number} [limit=20]
-   * @returns {Promise<Array<{ id, nombre, carrera, email }>>}
-   */
-  static async search(query, excludeUserId, limit = 20) {
-    const db = getDb();
-    const q = `%${query.toLowerCase()}%`;
-    return new Promise((resolve, reject) => {
-      db.all(
-        `SELECT id, nombre, carrera, email
-         FROM users
-         WHERE (LOWER(nombre) LIKE ? OR LOWER(email) LIKE ?)
-           AND id != ?
-           AND isActive = 1
-         ORDER BY nombre ASC
-         LIMIT ?`,
-        [q, q, excludeUserId, limit],
-        (err, rows) => {
-          if (err) return reject(err);
-          resolve(rows);
-        }
-      );
-    });
-  }
+UserSchema.statics.findByEmail = async function (email) {
+  const doc = await this.findOne({ email: email.toLowerCase() });
+  return toPlain(doc);
+};
 
-  /**
-   * Busca un usuario activo por ID y retorna solo campos públicos.
-   * Find an active user by ID and return only public fields.
-   *
-   * @param {number} id
-   * @returns {Promise<Pick<IUser, 'id'|'nombre'|'email'|'carrera'|'semestre'|'bio'|'profilePicture'|'createdAt'>|null>}
-   */
-  static async findPublicById(id) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT id, nombre, email, carrera, semestre, bio, profilePicture, createdAt
-         FROM users
-         WHERE id = ? AND isActive = 1`,
-        [id],
-        (err, row) => {
-          if (err) return reject(err);
-          resolve(row || null);
-        }
-      );
-    });
-  }
+UserSchema.statics.findByFirebaseUid = async function (uid) {
+  const doc = await this.findOne({ firebaseUid: uid });
+  return toPlain(doc);
+};
 
-  /**
-   * Actualiza campos editables del perfil de un usuario.
-   * Update editable profile fields for a user.
-   *
-   * @param {number} id
-   * @param {{ nombre?: string, bio?: string, semestre?: number }} data
-   * @returns {Promise<IUser>}
-   */
-  static async update(id, { nombre, bio, semestre }) {
-    const db = getDb();
-    const sets = ['updatedAt = CURRENT_TIMESTAMP'];
-    const params = [];
+UserSchema.statics.search = async function (query, excludeUserId, limit = 20) {
+  const regex = new RegExp(query, 'i');
+  const docs = await this.find({
+    _id: { $ne: excludeUserId },
+    isActive: true,
+    $or: [{ nombre: regex }, { email: regex }],
+  }).select('nombre carrera email').sort({ nombre: 1 }).limit(limit).lean();
+  return docs.map((o) => {
+    o.id = o._id.toString();
+    delete o._id;
+    delete o.__v;
+    return o;
+  });
+};
 
-    if (nombre !== undefined) {
-      sets.push('nombre = ?');
-      params.push(nombre.trim());
-    }
-    if (bio !== undefined) {
-      sets.push('bio = ?');
-      params.push(bio);
-    }
-    if (semestre !== undefined) {
-      sets.push('semestre = ?');
-      params.push(semestre);
-    }
+UserSchema.statics.findPublicById = async function (id) {
+  const doc = await this.findOne({ _id: id, isActive: true })
+    .select('nombre email carrera semestre bio profilePicture createdAt');
+  return toPlain(doc);
+};
 
-    params.push(id);
+UserSchema.statics.update = async function (id, data) {
+  const doc = await this.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  return toPlain(doc);
+};
 
-    return new Promise((resolve, reject) => {
-      db.run(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, params, function (err) {
-        if (err) return reject(err);
-        db.get('SELECT * FROM users WHERE id = ?', [id], (err2, row) => {
-          if (err2) return reject(err2);
-          resolve(row);
-        });
-      });
-    });
-  }
+UserSchema.statics.toPublic = function (user) {
+  if (!user) return null;
+  const obj = toPlain(user);
+  const { password, ...pub } = obj;
+  return pub;
+};
 
-  /**
-   * Retorna el usuario sin campos sensibles (password).
-   * Return user object without sensitive fields.
-   *
-   * @param {IUser} user
-   * @returns {Omit<IUser, 'password'>|null}
-   */
-  static toPublic(user) {
-    if (!user) return null;
-    // eslint-disable-next-line no-unused-vars
-    const { password, ...publicUser } = user;
-    return publicUser;
-  }
-}
+UserSchema.statics.CARRERAS = CARRERAS;
 
+const User = mongoose.model('User', UserSchema);
 User.CARRERAS = CARRERAS;
 
 module.exports = User;

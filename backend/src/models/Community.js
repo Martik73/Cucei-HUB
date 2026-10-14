@@ -1,129 +1,95 @@
-const { getDb } = require('../config/mongodb');
+const mongoose = require('mongoose');
+const { Schema, Types: { ObjectId } } = mongoose;
 
-class Community {
-  static async create({ nombre, descripcion, materia, tema, carrera, creatorId }) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.run(
-        `INSERT INTO communities (nombre, descripcion, materia, tema, carrera, creatorId)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [nombre.trim(), descripcion?.trim() || '', materia?.trim() || '', tema?.trim() || '', carrera?.trim() || '', creatorId],
-        function (err) {
-          if (err) return reject(err);
-          db.get('SELECT * FROM communities WHERE id = ?', [this.lastID], (err2, row) => {
-            if (err2) return reject(err2);
-            resolve(row);
-          });
-        }
-      );
-    });
-  }
+// Registrar CommunityMember para que mongoose.model('CommunityMember') funcione en las statics
+require('./CommunityMember');
 
-  static async findAll({ search = '', materia = '', carrera = '' } = {}) {
-    const db = getDb();
-    const conditions = ['1=1'];
-    const params = [];
+const CommunitySchema = new Schema({
+  nombre:      { type: String, required: true, trim: true },
+  descripcion: { type: String, default: '' },
+  materia:     { type: String, default: '' },
+  tema:        { type: String, default: '' },
+  carrera:     { type: String, default: '' },
+  creatorId:   { type: Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: true });
 
-    if (search) {
-      conditions.push("(c.nombre LIKE ? OR c.descripcion LIKE ? OR c.tema LIKE ?)");
-      const like = `%${search}%`;
-      params.push(like, like, like);
-    }
-    if (materia) {
-      conditions.push('c.materia = ?');
-      params.push(materia);
-    }
-    if (carrera) {
-      conditions.push('c.carrera = ?');
-      params.push(carrera);
-    }
+CommunitySchema.index({ carrera: 1 });
+CommunitySchema.index({ materia: 1 });
 
-    const where = conditions.join(' AND ');
+const listPipeline = (matchCond, userId) => [
+  { $match: matchCond },
+  { $sort: { createdAt: -1 } },
+  { $lookup: { from: 'users',             localField: 'creatorId',   foreignField: '_id', as: 'creatorDoc'  } },
+  { $unwind: '$creatorDoc' },
+  { $lookup: { from: 'communitymembers',  localField: '_id',         foreignField: 'communityId', as: 'members'     } },
+  { $lookup: { from: 'materials',         localField: '_id',         foreignField: 'communityId', as: 'matsArr'     } },
+  { $addFields: {
+    id:            { $toString: '$_id' },
+    creatorId:     { $toString: '$creatorId' },
+    creatorNombre: '$creatorDoc.nombre',
+    memberCount:   { $size: '$members' },
+    materialCount: { $size: '$matsArr' },
+    ...(userId ? {
+      isMember: {
+        $gt: [{ $size: { $filter: { input: '$members', as: 'm', cond: { $eq: ['$$m.userId', new ObjectId(userId)] } } } }, 0],
+      },
+    } : { isMember: false }),
+  }},
+  { $project: { _id: 0, __v: 0, creatorDoc: 0, members: 0, matsArr: 0 } },
+];
 
-    return new Promise((resolve, reject) => {
-      db.all(
-        `SELECT
-           c.*,
-           u.nombre AS creatorNombre,
-           (SELECT COUNT(*) FROM community_members cm WHERE cm.communityId = c.id) AS memberCount,
-           (SELECT COUNT(*) FROM materials m WHERE m.communityId = c.id) AS materialCount
-         FROM communities c
-         JOIN users u ON u.id = c.creatorId
-         WHERE ${where}
-         ORDER BY c.createdAt DESC`,
-        params,
-        (err, rows) => {
-          if (err) return reject(err);
-          resolve(rows);
-        }
-      );
-    });
-  }
+CommunitySchema.statics.create = async function ({ nombre, descripcion, materia, tema, carrera, creatorId }) {
+  const doc = await new this({
+    nombre: nombre.trim(),
+    descripcion: descripcion?.trim() || '',
+    materia: materia?.trim() || '',
+    tema: tema?.trim() || '',
+    carrera: carrera?.trim() || '',
+    creatorId,
+  }).save();
+  const plain = doc.toObject();
+  plain.id = plain._id.toString();
+  plain.creatorId = plain.creatorId.toString();
+  delete plain._id;
+  delete plain.__v;
+  return plain;
+};
 
-  static async findById(id, userId = null) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT
-           c.*,
-           u.nombre AS creatorNombre,
-           (SELECT COUNT(*) FROM community_members cm WHERE cm.communityId = c.id) AS memberCount,
-           (SELECT COUNT(*) FROM materials m WHERE m.communityId = c.id) AS materialCount
-           ${userId ? ', (SELECT COUNT(*) FROM community_members cm2 WHERE cm2.communityId = c.id AND cm2.userId = ?) AS isMember' : ''}
-         FROM communities c
-         JOIN users u ON u.id = c.creatorId
-         WHERE c.id = ?`,
-        userId ? [userId, id] : [id],
-        (err, row) => {
-          if (err) return reject(err);
-          if (!row) return resolve(null);
-          resolve({ ...row, isMember: userId ? row.isMember > 0 : false });
-        }
-      );
-    });
-  }
+CommunitySchema.statics.findAll = async function ({ search = '', materia = '', carrera = '' } = {}) {
+  const matchCond = {};
+  if (search)  matchCond.$or = [
+    { nombre:      { $regex: search, $options: 'i' } },
+    { descripcion: { $regex: search, $options: 'i' } },
+    { tema:        { $regex: search, $options: 'i' } },
+  ];
+  if (materia) matchCond.materia = materia;
+  if (carrera) matchCond.carrera = carrera;
+  return this.aggregate(listPipeline(matchCond, null));
+};
 
-  static async isMember(communityId, userId) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.get(
-        'SELECT 1 FROM community_members WHERE communityId = ? AND userId = ?',
-        [communityId, userId],
-        (err, row) => {
-          if (err) return reject(err);
-          resolve(!!row);
-        }
-      );
-    });
-  }
+CommunitySchema.statics.findById = async function (id, userId = null) {
+  const [community] = await this.aggregate(listPipeline({ _id: new ObjectId(id) }, userId));
+  return community || null;
+};
 
-  static async join(communityId, userId) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.run(
-        'INSERT OR IGNORE INTO community_members (communityId, userId) VALUES (?, ?)',
-        [communityId, userId],
-        (err) => {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
-    });
-  }
+CommunitySchema.statics.isMember = async function (communityId, userId) {
+  const CommunityMember = mongoose.model('CommunityMember');
+  const doc = await CommunityMember.findOne({ communityId: new ObjectId(communityId), userId: new ObjectId(userId) }).lean();
+  return !!doc;
+};
 
-  static async leave(communityId, userId) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.run(
-        'DELETE FROM community_members WHERE communityId = ? AND userId = ?',
-        [communityId, userId],
-        (err) => {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
-    });
-  }
-}
+CommunitySchema.statics.join = async function (communityId, userId) {
+  const CommunityMember = mongoose.model('CommunityMember');
+  await CommunityMember.updateOne(
+    { communityId: new ObjectId(communityId), userId: new ObjectId(userId) },
+    { $setOnInsert: { joinedAt: new Date() } },
+    { upsert: true }
+  );
+};
 
-module.exports = Community;
+CommunitySchema.statics.leave = async function (communityId, userId) {
+  const CommunityMember = mongoose.model('CommunityMember');
+  await CommunityMember.deleteOne({ communityId: new ObjectId(communityId), userId: new ObjectId(userId) });
+};
+
+module.exports = mongoose.model('Community', CommunitySchema);

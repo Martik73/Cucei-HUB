@@ -1,78 +1,55 @@
-const { getDb } = require('../config/mongodb');
+const mongoose = require('mongoose');
+const { Schema, Types: { ObjectId } } = mongoose;
 
-/**
- * @typedef {Object} IComment
- * @property {number} id
- * @property {number} postId
- * @property {number} authorId
- * @property {string} content
- * @property {string} createdAt
- */
+const CommentSchema = new Schema({
+  postId:   { type: Schema.Types.ObjectId, ref: 'Post', required: true },
+  authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  content:  { type: String, required: true },
+}, { timestamps: true });
 
-class Comment {
-  /**
-   * Crea un comentario en una publicación.
-   * Create a comment on a post.
-   *
-   * @param {{ postId: number, authorId: number, content: string }}
-   * @returns {Promise<IComment & { authorNombre: string, authorPicture: string }>}
-   */
-  static async create({ postId, authorId, content }) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.run(
-        'INSERT INTO comments (postId, authorId, content) VALUES (?, ?, ?)',
-        [postId, authorId, content.trim()],
-        function (err) {
-          if (err) return reject(err);
-          db.get(
-            `SELECT c.*, u.nombre AS authorNombre, u.profilePicture AS authorPicture
-             FROM comments c
-             JOIN users u ON u.id = c.authorId
-             WHERE c.id = ?`,
-            [this.lastID],
-            (err2, row) => {
-              if (err2) return reject(err2);
-              resolve(row);
-            }
-          );
-        }
-      );
-    });
-  }
+CommentSchema.index({ postId: 1 });
 
-  /**
-   * Retorna comentarios paginados de un post, con info del autor.
-   * Return paginated comments for a post with author info.
-   *
-   * @param {number} postId
-   * @param {number} page
-   * @param {number} limit
-   * @returns {Promise<{ comments: IComment[], total: number }>}
-   */
-  static async findByPost(postId, page = 1, limit = 20) {
-    const db = getDb();
-    const offset = (page - 1) * limit;
+CommentSchema.statics.create = async function ({ postId, authorId, content }) {
+  const doc = await new this({ postId, authorId, content: content.trim() }).save();
+  const [result] = await this.aggregate([
+    { $match: { _id: doc._id } },
+    { $lookup: { from: 'users', localField: 'authorId', foreignField: '_id', as: 'authorDoc' } },
+    { $unwind: '$authorDoc' },
+    { $addFields: {
+      id:            { $toString: '$_id' },
+      postId:        { $toString: '$postId' },
+      authorId:      { $toString: '$authorId' },
+      authorNombre:  '$authorDoc.nombre',
+      authorPicture: '$authorDoc.profilePicture',
+    }},
+    { $project: { _id: 0, __v: 0, authorDoc: 0 } },
+  ]);
+  return result;
+};
 
-    return new Promise((resolve, reject) => {
-      db.get('SELECT COUNT(*) AS total FROM comments WHERE postId = ?', [postId], (err, countRow) => {
-        if (err) return reject(err);
-        db.all(
-          `SELECT c.*, u.nombre AS authorNombre, u.profilePicture AS authorPicture
-           FROM comments c
-           JOIN users u ON u.id = c.authorId
-           WHERE c.postId = ?
-           ORDER BY c.createdAt ASC
-           LIMIT ? OFFSET ?`,
-          [postId, limit, offset],
-          (err2, rows) => {
-            if (err2) return reject(err2);
-            resolve({ comments: rows, total: countRow.total });
-          }
-        );
-      });
-    });
-  }
-}
+CommentSchema.statics.findByPost = async function (postId, page = 1, limit = 20) {
+  const match = { postId: new ObjectId(postId) };
+  const offset = (page - 1) * limit;
+  const [total, comments] = await Promise.all([
+    this.countDocuments(match),
+    this.aggregate([
+      { $match: match },
+      { $sort: { createdAt: 1 } },
+      { $skip: offset },
+      { $limit: limit },
+      { $lookup: { from: 'users', localField: 'authorId', foreignField: '_id', as: 'authorDoc' } },
+      { $unwind: '$authorDoc' },
+      { $addFields: {
+        id:            { $toString: '$_id' },
+        postId:        { $toString: '$postId' },
+        authorId:      { $toString: '$authorId' },
+        authorNombre:  '$authorDoc.nombre',
+        authorPicture: '$authorDoc.profilePicture',
+      }},
+      { $project: { _id: 0, __v: 0, authorDoc: 0 } },
+    ]),
+  ]);
+  return { comments, total };
+};
 
-module.exports = Comment;
+module.exports = mongoose.model('Comment', CommentSchema);

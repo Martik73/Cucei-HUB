@@ -1,56 +1,51 @@
-const { getDb } = require('../config/mongodb');
+const mongoose = require('mongoose');
+const { Schema, Types: { ObjectId } } = mongoose;
 
-class CommunityMessage {
-  static async create({ communityId, userId, content }) {
-    const db = getDb();
-    return new Promise((resolve, reject) => {
-      db.run(
-        'INSERT INTO community_messages (communityId, userId, content) VALUES (?, ?, ?)',
-        [communityId, userId, content.trim()],
-        function (err) {
-          if (err) return reject(err);
-          db.get(
-            `SELECT cm.*, u.nombre AS userNombre, u.profilePicture AS userPicture
-             FROM community_messages cm
-             JOIN users u ON u.id = cm.userId
-             WHERE cm.id = ?`,
-            [this.lastID],
-            (err2, row) => {
-              if (err2) return reject(err2);
-              resolve(row);
-            }
-          );
-        }
-      );
-    });
-  }
+const CommunityMessageSchema = new Schema({
+  communityId: { type: Schema.Types.ObjectId, ref: 'Community', required: true },
+  userId:      { type: Schema.Types.ObjectId, ref: 'User',      required: true },
+  content:     { type: String, required: true },
+}, { timestamps: true, collection: 'communitymessages' });
 
-  static async findByCommunity(communityId, { page = 1, limit = 50 } = {}) {
-    const db = getDb();
-    const offset = (page - 1) * limit;
-    return new Promise((resolve, reject) => {
-      db.get(
-        'SELECT COUNT(*) AS total FROM community_messages WHERE communityId = ?',
-        [communityId],
-        (err, countRow) => {
-          if (err) return reject(err);
-          db.all(
-            `SELECT cm.*, u.nombre AS userNombre, u.profilePicture AS userPicture
-             FROM community_messages cm
-             JOIN users u ON u.id = cm.userId
-             WHERE cm.communityId = ?
-             ORDER BY cm.createdAt ASC
-             LIMIT ? OFFSET ?`,
-            [communityId, limit, offset],
-            (err2, rows) => {
-              if (err2) return reject(err2);
-              resolve({ messages: rows, total: countRow.total, page, totalPages: Math.ceil(countRow.total / limit) });
-            }
-          );
-        }
-      );
-    });
-  }
-}
+CommunityMessageSchema.index({ communityId: 1 });
 
-module.exports = CommunityMessage;
+const msgWithUser = (extra = []) => [
+  { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'userDoc' } },
+  { $unwind: '$userDoc' },
+  ...extra,
+  { $addFields: {
+    id:          { $toString: '$_id' },
+    communityId: { $toString: '$communityId' },
+    userId:      { $toString: '$userId' },
+    userNombre:  '$userDoc.nombre',
+    userPicture: '$userDoc.profilePicture',
+  }},
+  { $project: { _id: 0, __v: 0, userDoc: 0 } },
+];
+
+CommunityMessageSchema.statics.create = async function ({ communityId, userId, content }) {
+  const doc = await new this({ communityId, userId, content: content.trim() }).save();
+  const [result] = await this.aggregate([
+    { $match: { _id: doc._id } },
+    ...msgWithUser(),
+  ]);
+  return result;
+};
+
+CommunityMessageSchema.statics.findByCommunity = async function (communityId, { page = 1, limit = 50 } = {}) {
+  const match = { communityId: new ObjectId(communityId) };
+  const offset = (page - 1) * limit;
+  const [total, messages] = await Promise.all([
+    this.countDocuments(match),
+    this.aggregate([
+      { $match: match },
+      { $sort: { createdAt: 1 } },
+      { $skip: offset },
+      { $limit: limit },
+      ...msgWithUser(),
+    ]),
+  ]);
+  return { messages, total, page, totalPages: Math.ceil(total / limit) };
+};
+
+module.exports = mongoose.model('CommunityMessage', CommunityMessageSchema, 'communitymessages');

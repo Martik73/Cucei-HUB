@@ -30,7 +30,7 @@ const socketAuth = (socket, next) => {
 
     // Adjuntar datos del usuario al socket para todos los eventos
     // Attach user data to socket for use in all event handlers
-    socket.userId    = decoded.uid;   // SQLite row ID (integer)
+    socket.userId    = decoded.uid;   // MongoDB ObjectId string
     socket.userEmail = decoded.email;
     next();
   } catch {
