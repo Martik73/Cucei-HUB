@@ -18,8 +18,8 @@ import type { Community, Material } from '@/types';
 type Tab = 'materiales' | 'discusion';
 
 function CommunityDetailContent() {
-  const params = useParams();
-  const id = parseInt(params.id as string, 10);
+  const params = useParams<{ id: string }>();
+  const id = params.id;
   const { user } = useAuth();
 
   const [community, setCommunity] = useState<Community | null>(null);
@@ -172,7 +172,7 @@ function CommunityDetailContent() {
                 <MaterialCard
                   key={m.id}
                   material={m}
-                  currentUserId={user?.id ?? 0}
+                  currentUserId={user?.id ?? ''}
                   onDeleted={(deletedId) => {
                     setMaterials((prev) => prev.filter((mat) => mat.id !== deletedId));
                     setCommunity((c) => c ? { ...c, materialCount: c.materialCount - 1 } : c);

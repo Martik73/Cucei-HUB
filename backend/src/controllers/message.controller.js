@@ -30,7 +30,6 @@ const getHistory = async (req, res) => {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
 
     const { messages, total } = await Message.findConversation(currentUserId, targetUserId, page, limit);
-    await Message.markAsRead(targetUserId, currentUserId);
 
     return res.status(200).json({
       messages, total, page,

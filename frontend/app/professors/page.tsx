@@ -53,7 +53,7 @@ function ProfessorsContent() {
     try {
       const data = await getProfessors({
         search:   debouncedSearch || undefined,
-        subject:  subjectFilter  ? parseInt(subjectFilter,  10) : undefined,
+        subject:  subjectFilter  ? subjectFilter : undefined,
         semestre: semestreFilter ? parseInt(semestreFilter, 10) : undefined,
       });
       setProfessors(data);

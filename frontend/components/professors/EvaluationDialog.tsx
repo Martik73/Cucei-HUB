@@ -24,7 +24,7 @@ const inputCls = cn(
 );
 
 interface Props {
-  professorId: number;
+  professorId: string;
   professorNombre: string;
   subjects: Subject[];
   open: boolean;
@@ -74,7 +74,7 @@ export default function EvaluationDialog({
     setSubmitting(true);
     try {
       const result = await createEvaluation(professorId, {
-        subjectId: parseInt(subjectId, 10),
+        subjectId,
         rating,
         comment: comment.trim(),
         semestre: parseInt(semestre, 10),

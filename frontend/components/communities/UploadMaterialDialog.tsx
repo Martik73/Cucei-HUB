@@ -11,7 +11,7 @@ import { getErrorMessage } from '@/lib/api';
 import type { Material } from '@/types';
 
 interface Props {
-  communityId: number;
+  communityId: string;
   open: boolean;
   onClose: () => void;
   onUploaded: (material: Material) => void;

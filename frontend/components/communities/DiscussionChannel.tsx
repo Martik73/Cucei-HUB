@@ -11,9 +11,9 @@ import { getErrorMessage } from '@/lib/api';
 import type { CommunityMessage } from '@/types';
 
 interface Props {
-  communityId: number;
+  communityId: string;
   isMember: boolean;
-  currentUserId: number;
+  currentUserId: string;
 }
 
 function initials(name: string) {

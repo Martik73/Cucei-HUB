@@ -44,7 +44,7 @@ function initials(nombre: string) {
 
 interface Props {
   post: Post;
-  onDelete: (postId: number) => void;
+  onDelete: (postId: string) => void;
   onUpdate: (post: Post) => void;
 }
 

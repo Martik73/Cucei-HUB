@@ -18,7 +18,7 @@ function MessagesContent() {
   const [showList,      setShowList]      = useState(true);
 
   const searchParams    = useSearchParams();
-  const initialWithId   = useRef(Number(searchParams.get('with')) || null);
+  const initialWithId   = useRef(searchParams.get('with') || null);
 
   // Open conversation directly when arriving via ?with=<userId>
   useEffect(() => {
@@ -31,7 +31,6 @@ function MessagesContent() {
         setShowList(false);
       })
       .catch(() => {/* silently ignore — user may not exist */});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSelect = (partner: ChatPartner) => {
@@ -63,8 +62,9 @@ function MessagesContent() {
       >
         {activePartner ? (
           <ChatWindow
+            key={activePartner.id}
             partner={activePartner}
-            onBack={() => setShowList(true)}
+            onBack={() => { setShowList(true); setActivePartner(null); }}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">

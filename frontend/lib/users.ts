@@ -8,7 +8,7 @@ export interface UpdateProfileData {
   semestre?: number;
 }
 
-export async function getUserProfile(userId: number): Promise<PublicUser> {
+export async function getUserProfile(userId: string): Promise<PublicUser> {
   const res = await api.get<{ user: PublicUser }>(`/users/${userId}`);
   return res.data.user;
 }
@@ -18,7 +18,7 @@ export async function updateProfile(data: UpdateProfileData): Promise<User> {
   return res.data.user;
 }
 
-export async function getUserPosts(userId: number, page = 1, limit = 20): Promise<FeedResponse> {
+export async function getUserPosts(userId: string, page = 1, limit = 20): Promise<FeedResponse> {
   const res = await api.get<FeedResponse>(`/users/${userId}/posts`, {
     params: { page, limit },
   });

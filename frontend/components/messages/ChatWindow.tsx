@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 
 export interface ChatPartner {
-  id: number;
+  id: string;
   nombre: string;
   carrera: string;
   email: string;
@@ -36,157 +36,164 @@ function msgTime(dateStr: string): string {
   return format(d, 'dd/MM HH:mm');
 }
 
+// Merge history and live delivery by database ID so reconnect replay cannot duplicate bubbles.
+function mergeMessages(current: Message[], incoming: Message[]): Message[] {
+  const byId = new Map(current.map(message => [message.id, message]));
+  for (const message of incoming) {
+    const previous = byId.get(message.id);
+    byId.set(message.id, { ...previous, ...message,
+      read: !!(previous?.read || message.read),
+      deliveredAt: previous?.deliveredAt || message.deliveredAt,
+    });
+  }
+  return [...byId.values()].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+}
+
 export default function ChatWindow({ partner, onBack }: Props) {
-  const { user }   = useAuth();
-  const { socket } = useSocket();
-
-  const [messages,     setMessages]     = useState<Message[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const [loadingMore,  setLoadingMore]  = useState(false);
-  const [page,         setPage]         = useState(1);
-  const [hasMore,      setHasMore]      = useState(false);
-  const [content,      setContent]      = useState('');
+  const { user } = useAuth();
+  const { socket, connected, onlineUserIds } = useSocket();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [content, setContent] = useState('');
   const [partnerTyping, setPartnerTyping] = useState(false);
-  const [sending,      setSending]      = useState(false);
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const receivedTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestVersion = useRef(0);
+  const pendingOptId = useRef<string | null>(null);
+  const invalidateHistory = useCallback(() => { requestVersion.current++; }, []);
 
-  const bottomRef      = useRef<HTMLDivElement>(null);
-  const typingTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingOptId   = useRef<number | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // ── Load history ────────────────────────────────────────────────────────
-  const loadHistory = useCallback(
-    async (p: number, prepend = false) => {
-      if (p > 1) setLoadingMore(true);
-      try {
-        const data = await getHistory(partner.id, p);
-        setMessages((prev) => (prepend ? [...data.messages, ...prev] : data.messages));
-        setHasMore(p < data.totalPages);
-        setPage(p);
-      } catch (err) {
-        toast.error(getErrorMessage(err));
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
+  const loadHistory = useCallback(async (p: number, prepend = false) => {
+    const version = ++requestVersion.current;
+    if (prepend) setLoadingMore(true);
+    try {
+      const data = await getHistory(partner.id, p);
+      if (version !== requestVersion.current) return;
+      setMessages(prev => mergeMessages(data.messages, prev));
+      for (const message of data.messages) {
+        if (message.receiverId === user?.id) socket?.emit('message:delivered', { id: message.id });
       }
-    },
-    [partner.id]
-  );
-
-  // Reset on partner change
-  useEffect(() => {
-    setMessages([]);
-    setLoading(true);
-    setPage(1);
-    setHasMore(false);
-    setContent('');
-    setSending(false);
-    pendingOptId.current = null;
-    loadHistory(1);
-  }, [partner.id, loadHistory]);
-
-  // Scroll to bottom when new messages arrive (not when loading older ones)
-  useEffect(() => {
-    if (!loadingMore) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      if (socket?.connected && document.visibilityState === 'visible') socket.emit('message:read', { senderId: partner.id });
+      setHasMore(p < data.totalPages);
+      setPage(p);
+    } catch (error) { toast.error(getErrorMessage(error)); }
+    finally {
+      if (version === requestVersion.current) { setLoading(false); setLoadingMore(false); }
     }
-  }, [messages, loadingMore]);
+  }, [partner.id, user?.id, socket]);
 
-  // ── Socket events ────────────────────────────────────────────────────────
+  useEffect(() => {
+    loadHistory(1);
+    return invalidateHistory;
+  }, [loadHistory, invalidateHistory]);
+
+  useEffect(() => {
+    if (!loadingMore) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, partnerTyping, loadingMore]);
+
   useEffect(() => {
     if (!socket) return;
-
-    const onReceive = (msg: Message) => {
-      if (msg.senderId !== partner.id) return;
-      setMessages((prev) => [...prev, msg]);
+    const onReceive = (message: Message) => {
+      if (message.senderId !== partner.id) return;
+      setMessages(prev => mergeMessages(prev, [message]));
       setPartnerTyping(false);
-      socket.emit('message:read', { senderId: partner.id });
+      if (document.visibilityState === 'visible') socket.emit('message:read', { senderId: partner.id });
     };
-
-    const onSent = (msg: Message) => {
-      const optId = pendingOptId.current;
-      setMessages((prev) =>
-        prev.map((m) => (m.id === optId ? msg : m))
-      );
-      pendingOptId.current = null;
-      setSending(false);
+    const onSent = (message: Message) => {
+      if (message.receiverId === partner.id) setMessages(prev => mergeMessages(prev, [message]));
     };
-
-    const onTyping = ({ senderId, isTyping }: { senderId: number; isTyping: boolean }) => {
-      if (senderId !== partner.id) return;
-      setPartnerTyping(isTyping);
+    const onTyping = (data: { senderId: string; isTyping: boolean }) => {
+      if (data.senderId !== partner.id) return;
+      setPartnerTyping(data.isTyping);
+      if (receivedTypingTimer.current) clearTimeout(receivedTypingTimer.current);
+      receivedTypingTimer.current = setTimeout(() => setPartnerTyping(false), 3000);
     };
-
-    const onError = ({ message }: { message: string }) => {
-      const optId = pendingOptId.current;
-      setMessages((prev) => prev.filter((m) => m.id !== optId));
-      pendingOptId.current = null;
-      setSending(false);
-      toast.error(message);
+    const onDelivered = (data: { id: string; deliveredAt: string }) => {
+      setMessages(prev => prev.map(m => m.id === data.id ? { ...m, deliveredAt: data.deliveredAt } : m));
     };
-
+    const onRead = ({ readBy }: { readBy: string }) => {
+      if (readBy === partner.id) setMessages(prev => prev.map(m =>
+        m.senderId === user?.id && !m.id.startsWith('pending-') ? { ...m, read: true } : m));
+    };
+    const onDisconnect = () => setPartnerTyping(false);
+    const onReconnect = () => { loadHistory(1); };
+    const onError = ({ message }: { message: string }) => toast.error(message);
+    const onVisible = () => {
+      if (socket.connected && document.visibilityState === 'visible') socket.emit('message:read', { senderId: partner.id });
+    };
+    document.addEventListener('visibilitychange', onVisible);
     socket.on('message:receive', onReceive);
-    socket.on('message:sent',    onSent);
-    socket.on('message:typing',  onTyping);
-    socket.on('message:error',   onError);
-
-    // Mark as read on open
-    socket.emit('message:read', { senderId: partner.id });
-
+    socket.on('message:sent', onSent);
+    socket.on('message:typing', onTyping);
+    socket.on('message:delivered', onDelivered);
+    socket.on('message:read', onRead);
+    socket.on('message:error', onError);
+    socket.on('connect', onReconnect);
+    socket.on('disconnect', onDisconnect);
     return () => {
+      document.removeEventListener('visibilitychange', onVisible);
       socket.off('message:receive', onReceive);
-      socket.off('message:sent',    onSent);
-      socket.off('message:typing',  onTyping);
-      socket.off('message:error',   onError);
+      socket.off('message:sent', onSent);
+      socket.off('message:typing', onTyping);
+      socket.off('message:delivered', onDelivered);
+      socket.off('message:read', onRead);
+      socket.off('message:error', onError);
+      socket.off('connect', onReconnect);
+      socket.off('disconnect', onDisconnect);
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      if (receivedTypingTimer.current) clearTimeout(receivedTypingTimer.current);
+      if (socket.connected) socket.volatile.emit('message:typing', { receiverId: partner.id, isTyping: false });
     };
-  }, [socket, partner.id]);
+  }, [socket, partner.id, user?.id, loadHistory]);
 
-  // ── Send ─────────────────────────────────────────────────────────────────
   const handleSend = () => {
     const trimmed = content.trim();
-    if (!trimmed || !socket || sending) return;
-
-    const optId = -(Date.now());
+    if (!trimmed || trimmed.length > 2000 || !socket?.connected || sending || pendingOptId.current) return;
+    const optId = 'pending-' + crypto.randomUUID();
     pendingOptId.current = optId;
-
-    const optimistic: Message = {
-      id:         optId,
-      senderId:   user!.id,
-      receiverId: partner.id,
-      content:    trimmed,
-      read:       0,
-      createdAt:  new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, optimistic]);
+    setMessages(prev => [...prev, {
+      id: optId, senderId: user!.id, receiverId: partner.id, content: trimmed,
+      read: false, deliveredAt: null, createdAt: new Date().toISOString(),
+    }]);
     setContent('');
     setSending(true);
-
-    socket.emit('message:send', { receiverId: partner.id, content: trimmed });
-
-    // Stop typing indicator
+    socket.timeout(10000).emit('message:send', { receiverId: partner.id, content: trimmed },
+      (error: Error | null, result?: { ok: boolean; message?: Message; error?: string }) => {
+        setMessages(prev => {
+          const remaining = prev.filter(m => m.id !== optId);
+          return result?.message ? mergeMessages(remaining, [result.message]) : remaining;
+        });
+        pendingOptId.current = null;
+        setSending(false);
+        if (error) {
+          toast.error('No se pudo confirmar el envío. Revisa el historial antes de volver a enviarlo.');
+          loadHistory(1);
+        } else if (!result?.ok) {
+          setContent(current => current || trimmed);
+          toast.error(result?.error || 'No se pudo enviar el mensaje');
+        }
+      });
     if (typingTimer.current) clearTimeout(typingTimer.current);
-    socket.emit('message:typing', { receiverId: partner.id, isTyping: false });
+    socket.volatile.emit('message:typing', { receiverId: partner.id, isTyping: false });
   };
 
-  // ── Typing indicator ──────────────────────────────────────────────────────
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
-    if (!socket) return;
-
-    socket.emit('message:typing', { receiverId: partner.id, isTyping: true });
-
+    if (!socket?.connected) return;
+    socket.volatile.emit('message:typing', { receiverId: partner.id, isTyping: !!e.target.value.trim() });
     if (typingTimer.current) clearTimeout(typingTimer.current);
     typingTimer.current = setTimeout(() => {
-      socket.emit('message:typing', { receiverId: partner.id, isTyping: false });
+      socket.volatile.emit('message:typing', { receiverId: partner.id, isTyping: false });
     }, 1500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -206,7 +213,7 @@ export default function ChatWindow({ partner, onBack }: Props) {
         </Avatar>
         <div>
           <p className="text-sm font-semibold leading-tight">{partner.nombre}</p>
-          <p className="text-xs text-muted-foreground">{partner.carrera}</p>
+          <p className="text-xs text-muted-foreground">{!connected ? 'Reconectando…' : onlineUserIds.includes(partner.id) ? 'En línea' : 'Desconectado'}</p>
         </div>
       </div>
 
@@ -245,7 +252,7 @@ export default function ChatWindow({ partner, onBack }: Props) {
         ) : (
           messages.map((msg, idx) => {
             const isMine      = msg.senderId === user?.id;
-            const isOptimistic = msg.id < 0;
+            const isOptimistic = msg.id.startsWith('pending-');
             const prev         = messages[idx - 1];
             const next         = messages[idx + 1];
             const sameAsPrev   = prev?.senderId === msg.senderId;
@@ -283,7 +290,7 @@ export default function ChatWindow({ partner, onBack }: Props) {
                   </div>
                   {showTime && (
                     <span className="text-[10px] text-muted-foreground mt-0.5 px-1">
-                      {msgTime(msg.createdAt)}
+                      {msgTime(msg.createdAt)}{isMine && (' · ' + (isOptimistic ? 'Enviando…' : msg.read ? 'Leído' : msg.deliveredAt ? 'Entregado' : 'Enviado'))}
                     </span>
                   )}
                 </div>
@@ -296,7 +303,7 @@ export default function ChatWindow({ partner, onBack }: Props) {
         {partnerTyping && (
           <div className="flex justify-start mt-3">
             <div className="bg-muted rounded-2xl rounded-bl-sm px-3 py-2.5">
-              <span className="flex gap-1 items-center">
+              <span className="flex gap-1 items-center" role="status" aria-label="Escribiendo">
                 <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]" />
                 <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:160ms]" />
                 <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:320ms]" />
@@ -317,6 +324,8 @@ export default function ChatWindow({ partner, onBack }: Props) {
             onKeyDown={handleKeyDown}
             placeholder="Escribe un mensaje…"
             rows={1}
+            maxLength={2000}
+            aria-label="Mensaje"
             className={cn(
               'flex-1 resize-none rounded-2xl border border-input bg-transparent px-3 py-2 text-sm',
               'placeholder:text-muted-foreground outline-none transition-colors',
@@ -327,14 +336,14 @@ export default function ChatWindow({ partner, onBack }: Props) {
           <Button
             size="icon"
             onClick={handleSend}
-            disabled={!content.trim() || !socket || sending}
+            disabled={!content.trim() || !connected || sending}
             className="shrink-0 rounded-full size-9"
           >
             <Send className="size-4" />
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground mt-1.5">
-          Enter para enviar · Shift+Enter para nueva línea
+          {connected ? 'Enter para enviar · Shift+Enter para nueva línea' : 'Sin conexión. Tu borrador se conserva mientras reconectamos.'}
         </p>
       </div>
     </div>

@@ -12,8 +12,8 @@ import type { Material } from '@/types';
 
 interface Props {
   material: Material;
-  currentUserId: number;
-  onDeleted: (id: number) => void;
+  currentUserId: string;
+  onDeleted: (id: string) => void;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';

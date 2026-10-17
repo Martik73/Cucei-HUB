@@ -17,7 +17,7 @@ function initials(nombre: string) {
 }
 
 interface Props {
-  postId: number;
+  postId: string;
   onCommentAdded: () => void;
 }
 

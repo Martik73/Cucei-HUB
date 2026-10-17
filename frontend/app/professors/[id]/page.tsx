@@ -37,9 +37,9 @@ interface EvalState {
 }
 
 function ProfessorDetailContent() {
-  const params = useParams();
+  const params = useParams<{ id: string }>();
   const router = useRouter();
-  const profId = Number(params.id);
+  const profId = params.id;
 
   const [professor,    setProfessor]    = useState<Professor | null>(null);
   const [evalState,    setEvalState]    = useState<EvalState>({ list: [], total: 0, page: 1, totalPages: 1 });
@@ -53,7 +53,7 @@ function ProfessorDetailContent() {
     if (page > 1) setLoadingMore(true);
     try {
       const data = await getEvaluations(profId, {
-        subject:  subj ? parseInt(subj,  10) : undefined,
+        subject:  subj ? subj : undefined,
         semestre: sem  ? parseInt(sem,   10) : undefined,
         page,
       });

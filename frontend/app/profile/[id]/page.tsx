@@ -22,11 +22,11 @@ function initials(nombre: string) {
 }
 
 function ProfileContent() {
-  const params = useParams();
+  const params = useParams<{ id: string }>();
   const router = useRouter();
   const { user: authUser } = useAuth();
 
-  const profileId = Number(params.id);
+  const profileId = params.id;
   const isOwnProfile = authUser?.id === profileId;
 
   const [profile,     setProfile]     = useState<PublicUser | null>(null);
@@ -74,7 +74,7 @@ function ProfileContent() {
     }
   };
 
-  const handlePostDelete = (id: number) =>
+  const handlePostDelete = (id: string) =>
     setPosts((prev) => prev.filter((p) => p.id !== id));
 
   const handlePostUpdate = (updated: Post) =>

@@ -1,7 +1,7 @@
 // ─── Modelos del dominio ───────────────────────────────────────────────────
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
   nombre: string;
   carrera: string;
@@ -56,8 +56,8 @@ export interface ReactionCounts {
 }
 
 export interface Post {
-  id: number;
-  authorId: number;
+  id: string;
+  authorId: string;
   content: string;
   type: PostType;
   category: PostCategory;
@@ -75,9 +75,9 @@ export interface Post {
 }
 
 export interface Comment {
-  id: number;
-  postId: number;
-  authorId: number;
+  id: string;
+  postId: string;
+  authorId: string;
   content: string;
   createdAt: string;
   authorNombre?: string;
@@ -87,32 +87,33 @@ export interface Comment {
 // ─── Mensajes ──────────────────────────────────────────────────────────────
 
 export interface Message {
-  id: number;
-  senderId: number;
-  receiverId: number;
+  id: string;
+  senderId: string;
+  receiverId: string;
   content: string;
-  read: number;
+  read: boolean;
+  deliveredAt?: string | null;
   createdAt: string;
   senderNombre?: string;
   receiverNombre?: string;
 }
 
 export interface Conversation {
-  userId: number;
+  userId: string;
   nombre: string;
   email: string;
   profilePicture: string;
   carrera: string;
-  lastMessageId: number;
+  lastMessageId: string;
   lastContent: string;
-  lastSenderId: number;
-  lastRead: number;
+  lastSenderId: string;
+  lastRead: boolean;
   lastCreatedAt: string;
   unreadCount: number;
 }
 
 export interface SearchUser {
-  id: number;
+  id: string;
   nombre: string;
   carrera: string;
   email: string;
@@ -121,7 +122,7 @@ export interface SearchUser {
 // ─── Evaluación Docente ────────────────────────────────────────────────────
 
 export interface Professor {
-  id: number;
+  id: string;
   nombre: string;
   departamento: string;
   avgRating: number;
@@ -131,16 +132,16 @@ export interface Professor {
 }
 
 export interface Subject {
-  id: number;
+  id: string;
   nombre: string;
   carrera: string;
 }
 
 export interface Evaluation {
-  id: number;
-  professorId: number;
-  subjectId: number;
-  studentId: number;
+  id: string;
+  professorId: string;
+  subjectId: string;
+  studentId: string;
   rating: number;
   comment: string;
   semestre: number;
@@ -152,7 +153,7 @@ export interface Evaluation {
 // ─── Perfil público ────────────────────────────────────────────────────────
 
 export interface PublicUser {
-  id: number;
+  id: string;
   nombre: string;
   email: string;
   carrera: string;
@@ -174,13 +175,13 @@ export interface PaginatedResponse<T> {
 // ─── Comunidades / Material Educativo ──────────────────────────────────────
 
 export interface Community {
-  id: number;
+  id: string;
   nombre: string;
   descripcion: string;
   materia: string;
   tema: string;
   carrera: string;
-  creatorId: number;
+  creatorId: string;
   creatorNombre: string;
   memberCount: number;
   materialCount: number;
@@ -191,9 +192,9 @@ export interface Community {
 export type MaterialType = 'pdf' | 'youtube';
 
 export interface Material {
-  id: number;
-  communityId: number;
-  uploaderId: number;
+  id: string;
+  communityId: string;
+  uploaderId: string;
   titulo: string;
   descripcion: string;
   tipo: MaterialType;
@@ -205,9 +206,9 @@ export interface Material {
 }
 
 export interface CommunityMessage {
-  id: number;
-  communityId: number;
-  userId: number;
+  id: string;
+  communityId: string;
+  userId: string;
   content: string;
   userNombre: string;
   userPicture: string;
