@@ -4,13 +4,18 @@
  */
 const CARRERAS = [
   'Ingeniería en Computación',
+  'Ingeniería en Electrónica',
+  'Ingeniería Eléctrica',
   'Ingeniería Industrial',
-  'Ingeniería en Electrónica y Computación',
+  'Ingeniería Mecánica',
+  'Ingeniería Mecatrónica',
+  'Ingeniería Química',
   'Ingeniería Biomédica',
-  'Ingeniería Mecánica Eléctrica',
+  'Ingeniería Civil',
+  'Ingeniería en Telecomunicaciones',
   'Licenciatura en Física',
+  'Licenciatura en Química',
   'Licenciatura en Matemáticas',
-  'Otra',
 ];
 
 /**
