@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage } from '@/lib/api';
+import { getRegistrationOptions } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,34 +24,20 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-const CARRERAS = [
-  'Ingeniería en Computación',
-  'Ingeniería en Electrónica',
-  'Ingeniería Eléctrica',
-  'Ingeniería Industrial',
-  'Ingeniería Mecánica',
-  'Ingeniería Mecatrónica',
-  'Ingeniería Química',
-  'Ingeniería Biomédica',
-  'Ingeniería Civil',
-  'Ingeniería en Telecomunicaciones',
-  'Licenciatura en Física',
-  'Licenciatura en Química',
-  'Licenciatura en Matemáticas',
-];
-
 const schema = z
   .object({
-    nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').trim(),
+    nombre: z.string().trim().min(2, 'El nombre debe tener al menos 2 caracteres'),
     email: z
       .string()
+      .trim()
+      .toLowerCase()
       .min(1, 'El correo es requerido')
       .email('Correo inválido')
       .endsWith('@alumnos.udg.mx', 'Debe ser un correo @alumnos.udg.mx'),
     password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres'),
     confirmPassword: z.string(),
     carrera: z.string().min(1, 'Selecciona una carrera'),
-    semestre: z.number({ message: 'Selecciona un semestre' }).int().min(1, 'Selecciona un semestre').max(9),
+    semestre: z.number({ message: 'Selecciona un semestre' }).int().min(1, 'Selecciona un semestre').max(12),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: 'Las contraseñas no coinciden',
@@ -71,6 +58,17 @@ export default function RegisterPage() {
   const { register: authRegister } = useAuth();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [options, setOptions] = useState<{ carreras: string[]; maxSemestre: number } | null>(null);
+  const [optionsError, setOptionsError] = useState(false);
+  const loadOptions = useCallback(async () => {
+    setOptionsError(false);
+    try {
+      setOptions(await getRegistrationOptions());
+    } catch {
+      setOptionsError(true);
+    }
+  }, []);
+  useEffect(() => { void loadOptions(); }, [loadOptions]);
 
   const {
     register,
@@ -78,7 +76,9 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-  const onSubmit = async ({ confirmPassword: _, ...data }: FormData) => {
+  const onSubmit = async ({ nombre, email, password, carrera, semestre }: FormData) => {
+    if (!options) return;
+    const data = { nombre, email, password, carrera, semestre };
     setSubmitting(true);
     try {
       await authRegister(data);
@@ -172,7 +172,7 @@ export default function RegisterPage() {
                 {...register('carrera')}
               >
                 <option value="">Selecciona tu carrera</option>
-                {CARRERAS.map((c) => (
+                {options?.carreras.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
@@ -191,7 +191,7 @@ export default function RegisterPage() {
                 {...register('semestre', { valueAsNumber: true })}
               >
                 <option value="">Selecciona tu semestre</option>
-                {Array.from({ length: 9 }, (_, i) => i + 1).map((s) => (
+                {Array.from({ length: options?.maxSemestre ?? 0 }, (_, i) => i + 1).map((s) => (
                   <option key={s} value={s}>
                     {s}° semestre
                   </option>
@@ -202,6 +202,12 @@ export default function RegisterPage() {
               )}
             </div>
           </form>
+          {!options && (
+            <p className="mt-3 text-sm" role="status">
+              {optionsError ? 'No se pudieron cargar las opciones de registro. Comprueba que el backend esté iniciado.' : 'Cargando opciones de registro…'}
+              {optionsError && <button type="button" onClick={loadOptions} className="ml-1 underline">Reintentar</button>}
+            </p>
+          )}
         </CardContent>
         <CardFooter className="flex-col gap-3">
           <Button
@@ -209,7 +215,7 @@ export default function RegisterPage() {
             type="submit"
             size="lg"
             className="w-full"
-            disabled={submitting}
+            disabled={submitting || !options}
           >
             {submitting ? 'Registrando...' : 'Crear cuenta'}
           </Button>

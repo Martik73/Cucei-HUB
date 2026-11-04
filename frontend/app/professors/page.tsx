@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Search, ChevronRight, GraduationCap } from 'lucide-react';
 import { toast } from 'sonner';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -26,8 +26,6 @@ const selectCls = cn(
 );
 
 function ProfessorsContent() {
-  const router = useRouter();
-
   const [professors,     setProfessors]     = useState<Professor[]>([]);
   const [subjects,       setSubjects]       = useState<Subject[]>([]);
   const [loading,        setLoading]        = useState(true);
@@ -154,10 +152,10 @@ function ProfessorsContent() {
             {professors.length} profesor{professors.length !== 1 ? 'es' : ''}
           </p>
           {professors.map((prof) => (
-            <button
+            <Link
               key={prof.id}
-              onClick={() => router.push(`/professors/${prof.id}`)}
-              className="w-full text-left flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-accent/40 transition-colors"
+              href={`/professors/${prof.id}`}
+              className="w-full text-left flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Avatar className="size-12 shrink-0">
                 <AvatarFallback className="text-base">{initials(prof.nombre)}</AvatarFallback>
@@ -176,7 +174,7 @@ function ProfessorsContent() {
                 </div>
               </div>
               <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-            </button>
+            </Link>
           ))}
         </div>
       )}

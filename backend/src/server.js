@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
-const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -19,7 +18,7 @@ const usersRoutes     = require('./routes/users.routes');
 const professorRoutes  = require('./routes/professor.routes');
 const subjectRoutes    = require('./routes/subject.routes');
 const communityRoutes  = require('./routes/community.routes');
-const { deleteMaterial } = require('./controllers/community.controller');
+const materialRoutes = require('./routes/material.routes');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -38,9 +37,6 @@ app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir archivos subidos (PDFs)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
@@ -58,7 +54,7 @@ app.use('/api/users',      usersRoutes);
 app.use('/api/professors',  professorRoutes);
 app.use('/api/subjects',    subjectRoutes);
 app.use('/api/communities', communityRoutes);
-app.delete('/api/materials/:id', require('./middleware/auth').verifyToken, deleteMaterial);
+app.use('/api/materials', materialRoutes);
 
 // ─── Manejo de rutas no encontradas ──────────────────────────────────────────
 app.use((req, res) => {

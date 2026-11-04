@@ -7,7 +7,7 @@ const CommunityMessageSchema = new Schema({
   content:     { type: String, required: true },
 }, { timestamps: true, collection: 'communitymessages' });
 
-CommunityMessageSchema.index({ communityId: 1 });
+CommunityMessageSchema.index({ communityId: 1, createdAt: -1, _id: -1 });
 
 const msgWithUser = (extra = []) => [
   { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'userDoc' } },
@@ -39,13 +39,13 @@ CommunityMessageSchema.statics.findByCommunity = async function (communityId, { 
     this.countDocuments(match),
     this.aggregate([
       { $match: match },
-      { $sort: { createdAt: 1 } },
+      { $sort: { createdAt: -1, _id: -1 } },
       { $skip: offset },
       { $limit: limit },
       ...msgWithUser(),
     ]),
   ]);
-  return { messages, total, page, totalPages: Math.ceil(total / limit) };
+  return { messages: messages.reverse(), total, page, totalPages: Math.ceil(total / limit) };
 };
 
 module.exports = mongoose.model('CommunityMessage', CommunityMessageSchema, 'communitymessages');

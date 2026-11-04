@@ -84,6 +84,35 @@ const getMaterials = async (req, res) => {
   }
 };
 
+const getMaterialFile = async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ message: 'ID de material inválido' });
+  try {
+    const material = await Material.findById(id);
+    if (!material || material.tipo !== 'pdf')
+      return res.status(404).json({ message: 'Archivo no encontrado' });
+
+    // Resolve only generated PDF names from the stored record, never a client path.
+    const match = /^\/uploads\/materials\/([\w.-]+\.pdf)$/i.exec(material.fileUrl || '');
+    if (!match) return res.status(404).json({ message: 'Archivo no encontrado' });
+    res.set({ 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+    res.type('pdf');
+    if (req.query.download === '1') {
+      const title = (material.titulo || 'material').replace(/[\\/:*?"<>|\r\n]/g, '_').slice(0, 100);
+      res.attachment(`${title}.pdf`);
+    }
+    res.sendFile(match[1], { root: path.join(__dirname, '../../uploads/materials'), dotfiles: 'deny' }, error => {
+      if (!error) return;
+      if (res.headersSent) return res.destroy();
+      res.status(error.statusCode === 404 || error.code === 'ENOENT' ? 404 : 500)
+        .json({ message: 'No se pudo obtener el archivo' });
+    });
+  } catch (error) {
+    console.error('Error en getMaterialFile:', error);
+    res.status(500).json({ message: 'Error al obtener el archivo' });
+  }
+};
+
 const uploadMaterial = async (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ message: 'ID inválido' });
@@ -152,8 +181,8 @@ const getMessages = async (req, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ message: 'ID inválido' });
   try {
-    const page  = parseInt(req.query.page,  10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 50;
+    const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 50));
     const result = await CommunityMessage.findByCommunity(id, { page, limit });
     res.json(result);
   } catch (err) {
@@ -181,6 +210,6 @@ const sendMessage = async (req, res) => {
 module.exports = {
   listCommunities, createCommunity, getCommunity,
   joinCommunity, leaveCommunity,
-  getMaterials, uploadMaterial, deleteMaterial,
+  getMaterials, getMaterialFile, uploadMaterial, deleteMaterial,
   getMessages, sendMessage,
 };

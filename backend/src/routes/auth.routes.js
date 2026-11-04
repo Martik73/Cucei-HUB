@@ -5,6 +5,12 @@ const { handleValidationErrors } = require('../middleware/errorHandler');
 const { register, login, getProfile, updateProfile } = require('../controllers/auth.controller');
 
 const router = Router();
+const { CARRERAS } = require('../utils/validators');
+
+// Public registration options use the same catalogue accepted by the backend.
+router.get('/options', (_req, res) => {
+  res.json({ carreras: CARRERAS, maxSemestre: 12 });
+});
 
 /**
  * POST /api/auth/register
@@ -18,6 +24,7 @@ router.post(
   [
     body('email')
       .trim()
+      .toLowerCase()
       .notEmpty().withMessage('El email es requerido')
       .isEmail().withMessage('Formato de email inválido'),
     body('password')
@@ -52,6 +59,7 @@ router.post(
   [
     body('email')
       .trim()
+      .toLowerCase()
       .notEmpty().withMessage('El email es requerido'),
     body('password')
       .notEmpty().withMessage('La contraseña es requerida'),

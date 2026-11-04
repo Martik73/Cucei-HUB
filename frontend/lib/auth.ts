@@ -1,6 +1,11 @@
 import api, { TOKEN_KEY } from './api';
 import type { AuthResponse, LoginData, RegisterData, User } from '@/types';
 
+export async function getRegistrationOptions(): Promise<{ carreras: string[]; maxSemestre: number }> {
+  const res = await api.get<{ carreras: string[]; maxSemestre: number }>('/auth/options');
+  return res.data;
+}
+
 export async function login(data: LoginData): Promise<AuthResponse> {
   const res = await api.post<AuthResponse>('/auth/login', data);
   return res.data;

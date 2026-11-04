@@ -65,6 +65,12 @@ export async function deleteMaterial(id: string): Promise<void> {
   await api.delete(`/materials/${id}`);
 }
 
+/** Axios attaches the JWT header; do not put session tokens in file URLs. */
+export async function getMaterialFile(id: string): Promise<Blob> {
+  const res = await api.get<Blob>(`/materials/${id}/file`, { responseType: 'blob' });
+  return res.data;
+}
+
 export async function getMessages(communityId: string, page = 1): Promise<MessagesResponse> {
   const res = await api.get<MessagesResponse>(`/communities/${communityId}/messages`, {
     params: { page, limit: 50 },

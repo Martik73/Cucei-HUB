@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Send, MessageSquare } from 'lucide-react';
@@ -21,16 +21,35 @@ function initials(name: string) {
 }
 
 export default function DiscussionChannel({ communityId, isMember, currentUserId }: Props) {
+  return <DiscussionContent key={communityId} communityId={communityId} isMember={isMember} currentUserId={currentUserId} />;
+}
+
+function mergeMessages(older: CommunityMessage[], current: CommunityMessage[]) {
+  return [...new Map([...older, ...current].map(message => [message.id, message])).values()]
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+}
+
+function DiscussionContent({ communityId, isMember, currentUserId }: Props) {
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const olderRequest = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const scrollMode = useRef<'bottom' | 'preserve' | null>(null);
+  const previousScroll = useRef({ height: 0, top: 0 });
 
   const fetchMessages = useCallback(async () => {
     try {
       const res = await getMessages(communityId);
-      setMessages(res.messages);
+      scrollMode.current = 'bottom';
+      setMessages(prev => mergeMessages(res.messages, prev));
+      setHasMore(res.page < res.totalPages);
+      setPage(res.page);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -40,9 +59,36 @@ export default function DiscussionChannel({ communityId, isMember, currentUserId
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (scrollMode.current === 'preserve' && list) {
+      list.scrollTop = previousScroll.current.top + list.scrollHeight - previousScroll.current.height;
+    } else if (scrollMode.current === 'bottom') {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    scrollMode.current = null;
   }, [messages]);
+
+  const loadOlder = async () => {
+    if (olderRequest.current) return;
+    olderRequest.current = true;
+    setLoadingMore(true);
+    const list = listRef.current;
+    if (list) previousScroll.current = { height: list.scrollHeight, top: list.scrollTop };
+    scrollMode.current = 'preserve';
+    try {
+      const res = await getMessages(communityId, page + 1);
+      setMessages(prev => mergeMessages(res.messages, prev));
+      setPage(res.page);
+      setHasMore(res.page < res.totalPages);
+    } catch (error) {
+      scrollMode.current = null;
+      toast.error(getErrorMessage(error));
+    } finally {
+      olderRequest.current = false;
+      setLoadingMore(false);
+    }
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +96,8 @@ export default function DiscussionChannel({ communityId, isMember, currentUserId
     setSending(true);
     try {
       const msg = await sendMessage(communityId, content.trim());
-      setMessages((prev) => [...prev, msg]);
+      scrollMode.current = 'bottom';
+      setMessages((prev) => mergeMessages(prev, [msg]));
       setContent('');
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -78,7 +125,13 @@ export default function DiscussionChannel({ communityId, isMember, currentUserId
   return (
     <div className="flex flex-col gap-4">
       {/* Lista de mensajes */}
-      <div className="flex flex-col gap-3 min-h-[200px] max-h-[500px] overflow-y-auto pr-1">
+      <div ref={listRef} className="flex flex-col gap-3 min-h-[200px] max-h-[500px] overflow-y-auto pr-1">
+        {hasMore && (
+          <button type="button" onClick={loadOlder} disabled={loadingMore}
+            className="self-center text-xs text-primary hover:underline disabled:opacity-50">
+            {loadingMore ? 'Cargando…' : 'Ver mensajes anteriores'}
+          </button>
+        )}
         {messages.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <MessageSquare className="size-8 mx-auto opacity-30 mb-2" />
