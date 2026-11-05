@@ -9,7 +9,7 @@ export interface EvaluationsResponse {
 }
 
 export interface CreateEvaluationData {
-  subjectId: number;
+  subjectId: string;
   rating: number;
   comment?: string;
   semestre: number;
@@ -22,28 +22,28 @@ export interface CreateEvaluationResult {
 
 export async function getProfessors(params?: {
   search?: string;
-  subject?: number;
+  subject?: string;
   semestre?: number;
 }): Promise<Professor[]> {
   const res = await api.get<{ professors: Professor[] }>('/professors', { params });
   return res.data.professors;
 }
 
-export async function getProfessor(id: number): Promise<Professor> {
+export async function getProfessor(id: string): Promise<Professor> {
   const res = await api.get<{ professor: Professor }>(`/professors/${id}`);
   return res.data.professor;
 }
 
 export async function getEvaluations(
-  professorId: number,
-  params?: { subject?: number; semestre?: number; page?: number; limit?: number }
+  professorId: string,
+  params?: { subject?: string; semestre?: number; page?: number; limit?: number }
 ): Promise<EvaluationsResponse> {
   const res = await api.get<EvaluationsResponse>(`/professors/${professorId}/evaluations`, { params });
   return res.data;
 }
 
 export async function createEvaluation(
-  professorId: number,
+  professorId: string,
   data: CreateEvaluationData
 ): Promise<CreateEvaluationResult> {
   const res = await api.post<CreateEvaluationResult>(`/professors/${professorId}/evaluations`, data);

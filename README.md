@@ -211,7 +211,7 @@ npm install
 Crea el archivo `.env.local` en la carpeta `frontend/`:
 
 ```bash
-echo "NEXT_PUBLIC_API_URL=http://localhost:5000" > .env.local
+echo "NEXT_PUBLIC_API_URL=http://localhost:5000/api" > .env.local
 ```
 
 Inicia el servidor de desarrollo:
@@ -253,7 +253,7 @@ FRONTEND_URL=http://localhost:3000
 ### Frontend — `frontend/.env.local`
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
 ```
 
 ---
@@ -277,6 +277,8 @@ La mensajería en tiempo real usa **Socket.io** sobre el mismo puerto del backen
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
+| `GET` | `/api/auth/options` | Carreras y semestre máximo admitidos por el registro |
+| `GET` | `/api/materials/:id/file` | Consultar PDF con JWT; `?download=1` solicita descarga |
 | `POST` | `/api/auth/register` | Registro con correo institucional |
 | `POST` | `/api/auth/login` | Login — retorna JWT |
 | `GET` | `/api/posts` | Feed paginado con filtro por carrera |
@@ -289,6 +291,14 @@ La mensajería en tiempo real usa **Socket.io** sobre el mismo puerto del backen
 | `POST` | `/api/communities/:id/join` | Unirse a una comunidad |
 
 ---
+
+## Acceso a materiales y discusión de comunidades
+
+Los PDF se consultan mediante `GET /api/materials/:id/file` con el encabezado `Authorization: Bearer <token>`. Las opciones **Ver** y **Descargar** de la interfaz utilizan esta ruta; las antiguas URL públicas bajo `/uploads` ya no sirven archivos. Los registros y archivos existentes conservan su ubicación en disco.
+
+La discusión de una comunidad carga los 50 mensajes más recientes en orden cronológico. **Ver mensajes anteriores** permite consultar el historial restante. Esto no incorpora recepción de mensajes de otros usuarios en tiempo real.
+
+Los formatos de los issues y la propuesta de revisión de profesores están en `docs/issues-propuestos.md`. El proceso y los permisos de alta de profesores permanecen pendientes de acuerdo del equipo.
 
 ## 👥 Equipo de desarrollo
 

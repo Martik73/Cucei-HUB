@@ -7,18 +7,18 @@ import { Search, X } from 'lucide-react';
 import { useSocket } from '@/context/SocketContext';
 import { getConversations, searchUsers } from '@/lib/messages';
 import { cn } from '@/lib/utils';
-import type { Conversation, Message, SearchUser } from '@/types';
+import type { Conversation, SearchUser } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export interface ChatPartner {
-  id: number;
+  id: string;
   nombre: string;
   carrera: string;
   email: string;
 }
 
 interface Props {
-  activeUserId: number | null;
+  activeUserId: string | null;
   onSelect: (partner: ChatPartner) => void;
 }
 
@@ -47,35 +47,20 @@ export default function ConversationList({ activeUserId, onSelect }: Props) {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  // Update conversation list when a new message arrives
+  // Reload durable summaries after incoming/outgoing messages and reconnects.
   useEffect(() => {
     if (!socket) return;
-
-    const handle = (msg: Message) => {
-      setConversations((prev) => {
-        const idx = prev.findIndex((c) => c.userId === msg.senderId);
-        if (idx === -1) {
-          // New conversation — reload to get user metadata
-          loadConversations();
-          return prev;
-        }
-        const updated = [...prev];
-        updated[idx] = {
-          ...updated[idx],
-          lastContent:    msg.content,
-          lastCreatedAt:  msg.createdAt,
-          lastSenderId:   msg.senderId,
-          lastRead:       0,
-          unreadCount:    (updated[idx].unreadCount ?? 0) + 1,
-        };
-        // Bubble to top
-        const [item] = updated.splice(idx, 1);
-        return [item, ...updated];
-      });
+    const events = ['connect', 'message:receive', 'message:sent', 'message:synced', 'conversations:changed'];
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(loadConversations, 100);
     };
-
-    socket.on('message:receive', handle);
-    return () => { socket.off('message:receive', handle); };
+    events.forEach(event => socket.on(event, refresh));
+    return () => {
+      clearTimeout(timer);
+      events.forEach(event => socket.off(event, refresh));
+    };
   }, [socket, loadConversations]);
 
   // Debounced user search

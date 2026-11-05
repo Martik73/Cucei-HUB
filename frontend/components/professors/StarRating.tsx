@@ -26,33 +26,37 @@ export default function StarRating({
   const display = hovered ?? value;
 
   return (
-    <div className={cn('flex items-center gap-0.5', className)} role={isInput ? 'group' : undefined}>
-      {Array.from({ length: max }, (_, i) => i + 1).map((star) => (
-        <button
-          key={star}
-          type="button"
-          disabled={!isInput}
-          onClick={() => onChange?.(star)}
-          onMouseEnter={() => isInput && setHovered(star)}
-          onMouseLeave={() => isInput && setHovered(null)}
-          className={cn(
-            'rounded transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            isInput  && 'cursor-pointer hover:scale-110',
-            !isInput && 'cursor-default pointer-events-none'
-          )}
-          aria-label={isInput ? `${star} estrella${star !== 1 ? 's' : ''}` : undefined}
-        >
+    <span
+      className={cn('inline-flex items-center gap-0.5', className)}
+      role={isInput ? 'group' : 'img'}
+      aria-label={isInput ? 'Calificación' : `${value} de ${max} estrellas`}
+    >
+      {Array.from({ length: max }, (_, i) => i + 1).map((star) => {
+        const icon = (
           <Star
+            aria-hidden="true"
             className={cn(
-              SIZE[size],
-              'transition-colors',
-              star <= display
-                ? 'fill-amber-400 text-amber-400'
-                : 'fill-transparent text-muted-foreground/30'
+              SIZE[size], 'transition-colors',
+              star <= display ? 'fill-amber-400 text-amber-400' : 'fill-transparent text-muted-foreground/30'
             )}
           />
-        </button>
-      ))}
-    </div>
+        );
+        if (!isInput) return <span key={star}>{icon}</span>;
+        return (
+          <button
+            key={star}
+            type="button"
+            onClick={() => onChange?.(star)}
+            onMouseEnter={() => setHovered(star)}
+            onMouseLeave={() => setHovered(null)}
+            className="rounded cursor-pointer transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`${star} estrella${star !== 1 ? 's' : ''}`}
+            aria-pressed={star === value}
+          >
+            {icon}
+          </button>
+        );
+      })}
+    </span>
   );
 }

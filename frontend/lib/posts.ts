@@ -43,30 +43,30 @@ export async function createPost(data: CreatePostData): Promise<Post> {
 }
 
 export async function updatePost(
-  postId: number,
+  postId: string,
   data: Pick<Partial<CreatePostData>, 'content' | 'category'>
 ): Promise<Post> {
   const res = await api.put<{ message: string; post: Post }>(`/posts/${postId}`, data);
   return res.data.post;
 }
 
-export async function deletePost(postId: number): Promise<void> {
+export async function deletePost(postId: string): Promise<void> {
   await api.delete(`/posts/${postId}`);
 }
 
-export async function reactToPost(postId: number, reaction: ReactionType): Promise<ReactResponse> {
+export async function reactToPost(postId: string, reaction: ReactionType): Promise<ReactResponse> {
   const res = await api.post<ReactResponse>(`/posts/${postId}/react`, { reaction });
   return res.data;
 }
 
-export async function getComments(postId: number, page = 1, limit = 20): Promise<CommentsResponse> {
+export async function getComments(postId: string, page = 1, limit = 20): Promise<CommentsResponse> {
   const res = await api.get<CommentsResponse>(`/posts/${postId}/comments`, {
     params: { page, limit },
   });
   return res.data;
 }
 
-export async function addComment(postId: number, content: string): Promise<Comment> {
+export async function addComment(postId: string, content: string): Promise<Comment> {
   const res = await api.post<{ message: string; comment: Comment }>(
     `/posts/${postId}/comments`,
     { content }

@@ -6,17 +6,15 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { deleteMaterial, extractYoutubeId } from '@/lib/communities';
+import { deleteMaterial, extractYoutubeId, getMaterialFile } from '@/lib/communities';
 import { getErrorMessage } from '@/lib/api';
 import type { Material } from '@/types';
 
 interface Props {
   material: Material;
-  currentUserId: number;
-  onDeleted: (id: number) => void;
+  currentUserId: string;
+  onDeleted: (id: string) => void;
 }
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
 function initials(name: string) {
   return name.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase();
@@ -24,6 +22,7 @@ function initials(name: string) {
 
 export default function MaterialCard({ material, currentUserId, onDeleted }: Props) {
   const [deleting, setDeleting] = useState(false);
+  const [loadingFile, setLoadingFile] = useState(false);
   const isOwner = material.uploaderId === currentUserId;
   const date = format(new Date(material.createdAt), 'd MMM yyyy', { locale: es });
 
@@ -38,6 +37,34 @@ export default function MaterialCard({ material, currentUserId, onDeleted }: Pro
       toast.error(getErrorMessage(err));
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleFile = async (download: boolean) => {
+    // Open immediately on the user gesture so preview is not blocked as a popup.
+    const preview = download ? null : window.open('about:blank', '_blank');
+    if (preview) preview.opener = null;
+    setLoadingFile(true);
+    try {
+      const file = await getMaterialFile(material.id);
+      const url = URL.createObjectURL(new Blob([file], { type: 'application/pdf' }));
+      if (!download && preview) {
+        preview.location.replace(url);
+      } else {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${material.titulo.replace(/[\\/:*?"<>|]/g, '_') || 'material'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+      // Give the browser time to consume the blob before releasing it.
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      preview?.close();
+      toast.error(getErrorMessage(error));
+    } finally {
+      setLoadingFile(false);
     }
   };
 
@@ -106,21 +133,22 @@ export default function MaterialCard({ material, currentUserId, onDeleted }: Pro
 
           {material.tipo === 'pdf' && material.fileUrl && (
             <div className="flex gap-2">
-              <a
-                href={`${API_BASE}${material.fileUrl}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs text-primary hover:underline"
+              <button
+                type="button"
+                onClick={() => handleFile(false)}
+                disabled={loadingFile}
+                className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
               >
                 <ExternalLink className="size-3" /> Ver
-              </a>
-              <a
-                href={`${API_BASE}${material.fileUrl}`}
-                download
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              </button>
+              <button
+                type="button"
+                onClick={() => handleFile(true)}
+                disabled={loadingFile}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
               >
                 <Download className="size-3" /> Descargar
-              </a>
+              </button>
             </div>
           )}
 

@@ -6,6 +6,7 @@ const MessageSchema = new Schema({
   receiverId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   content:    { type: String, required: true },
   read:       { type: Boolean, default: false },
+  deliveredAt: { type: Date, default: null },
 }, { timestamps: true });
 
 MessageSchema.index({ senderId: 1 });
@@ -14,7 +15,7 @@ MessageSchema.index({ senderId: 1, receiverId: 1, createdAt: 1 });
 
 const withParticipants = (matchCond, skip, limit) => [
   { $match: matchCond },
-  { $sort: { createdAt: 1 } },
+  { $sort: { createdAt: -1, _id: -1 } },
   { $skip: skip },
   { $limit: limit },
   { $lookup: { from: 'users', localField: 'senderId',   foreignField: '_id', as: 'senderDoc'   } },
@@ -58,7 +59,25 @@ MessageSchema.statics.findConversation = async function (userAId, userBId, page 
     this.countDocuments(matchCond),
     this.aggregate(withParticipants(matchCond, offset, limit)),
   ]);
-  return { messages, total };
+  return { messages: messages.reverse(), total };
+};
+
+// Replay only messages whose receipt has not been acknowledged by the recipient.
+MessageSchema.statics.findPending = async function (receiverId, afterId) {
+  const filter = { receiverId, deliveredAt: null };
+  if (afterId) filter._id = { $gt: new ObjectId(afterId) };
+  const docs = await this.find(filter).sort({ _id: 1 }).limit(100).lean();
+  return docs.map(({ _id, __v, ...doc }) => ({
+    ...doc, id: String(_id), senderId: String(doc.senderId), receiverId: String(doc.receiverId),
+  }));
+};
+
+MessageSchema.statics.markDelivered = async function (id, receiverId) {
+  const doc = await this.findOneAndUpdate(
+    { _id: id, receiverId, deliveredAt: null },
+    { $set: { deliveredAt: new Date() } }, { new: true }
+  ).lean();
+  return doc && { id: String(doc._id), senderId: String(doc.senderId), deliveredAt: doc.deliveredAt };
 };
 
 MessageSchema.statics.markAsRead = async function (senderId, receiverId) {

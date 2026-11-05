@@ -6,7 +6,7 @@ export interface HistoryResponse {
   total: number;
   page: number;
   totalPages: number;
-  with: { id: number; nombre: string; carrera: string; email: string; profilePicture: string };
+  with: { id: string; nombre: string; carrera: string; email: string; profilePicture: string };
 }
 
 export async function getConversations(): Promise<Conversation[]> {
@@ -14,7 +14,7 @@ export async function getConversations(): Promise<Conversation[]> {
   return res.data.conversations;
 }
 
-export async function getHistory(userId: number, page = 1, limit = 30): Promise<HistoryResponse> {
+export async function getHistory(userId: string, page = 1, limit = 30): Promise<HistoryResponse> {
   const res = await api.get<HistoryResponse>(`/messages/${userId}`, {
     params: { page, limit },
   });

@@ -80,7 +80,7 @@ function FeedContent() {
     }
   };
 
-  const handlePostDeleted = (postId: number) => {
+  const handlePostDeleted = (postId: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
   };
 

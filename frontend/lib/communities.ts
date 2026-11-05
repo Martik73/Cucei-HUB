@@ -23,26 +23,26 @@ export async function createCommunity(data: {
   return res.data.community;
 }
 
-export async function getCommunity(id: number): Promise<Community> {
+export async function getCommunity(id: string): Promise<Community> {
   const res = await api.get<{ community: Community }>(`/communities/${id}`);
   return res.data.community;
 }
 
-export async function joinCommunity(id: number): Promise<void> {
+export async function joinCommunity(id: string): Promise<void> {
   await api.post(`/communities/${id}/join`);
 }
 
-export async function leaveCommunity(id: number): Promise<void> {
+export async function leaveCommunity(id: string): Promise<void> {
   await api.post(`/communities/${id}/leave`);
 }
 
-export async function getMaterials(communityId: number): Promise<Material[]> {
+export async function getMaterials(communityId: string): Promise<Material[]> {
   const res = await api.get<{ materials: Material[] }>(`/communities/${communityId}/materials`);
   return res.data.materials;
 }
 
 export async function uploadMaterial(
-  communityId: number,
+  communityId: string,
   data: FormData,
   onProgress?: (pct: number) => void
 ): Promise<Material> {
@@ -61,18 +61,24 @@ export async function uploadMaterial(
   return res.data.material;
 }
 
-export async function deleteMaterial(id: number): Promise<void> {
+export async function deleteMaterial(id: string): Promise<void> {
   await api.delete(`/materials/${id}`);
 }
 
-export async function getMessages(communityId: number, page = 1): Promise<MessagesResponse> {
+/** Axios attaches the JWT header; do not put session tokens in file URLs. */
+export async function getMaterialFile(id: string): Promise<Blob> {
+  const res = await api.get<Blob>(`/materials/${id}/file`, { responseType: 'blob' });
+  return res.data;
+}
+
+export async function getMessages(communityId: string, page = 1): Promise<MessagesResponse> {
   const res = await api.get<MessagesResponse>(`/communities/${communityId}/messages`, {
     params: { page, limit: 50 },
   });
   return res.data;
 }
 
-export async function sendMessage(communityId: number, content: string): Promise<CommunityMessage> {
+export async function sendMessage(communityId: string, content: string): Promise<CommunityMessage> {
   const res = await api.post<{ data: CommunityMessage }>(`/communities/${communityId}/messages`, { content });
   return res.data.data;
 }

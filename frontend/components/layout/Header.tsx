@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu';
 
 function getInitials(nombre: string): string {
@@ -37,21 +38,23 @@ export default function Header() {
       <div className="flex flex-1 items-center justify-end">
         {user && (
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer">
+            <DropdownMenuTrigger aria-label="Menú de usuario" className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer">
               <Avatar>
                 <AvatarFallback>{getInitials(user.nombre)}</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel className="font-normal py-2">
-                <p className="text-sm font-medium leading-none">{user.nombre}</p>
-                <p className="text-xs text-muted-foreground mt-1 truncate">{user.email}</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push(`/profile/${user.id}`)}>
-                <UserIcon className="size-4" />
-                Perfil
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="font-normal py-2">
+                  <p className="text-sm font-medium leading-none">{user.nombre}</p>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">{user.email}</p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push(`/profile/${user.id}`)}>
+                  <UserIcon className="size-4" />
+                  Perfil
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={logout}>
                 <LogOut className="size-4" />

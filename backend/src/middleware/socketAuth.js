@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken');
+const { Types } = require('mongoose');
+const User = require('../models/User');
 
 /**
  * Middleware de autenticación para Socket.io.
@@ -14,7 +16,7 @@ const jwt = require('jsonwebtoken');
  * @param {import('socket.io').Socket} socket
  * @param {Function} next
  */
-const socketAuth = (socket, next) => {
+const socketAuth = async (socket, next) => {
   const token = socket.handshake.auth?.token;
 
   if (!token) {
@@ -27,11 +29,15 @@ const socketAuth = (socket, next) => {
     if (!decoded.email?.endsWith('@alumnos.udg.mx')) {
       return next(new Error('INVALID_DOMAIN'));
     }
+    if (!Types.ObjectId.isValid(decoded.uid)) return next(new Error('INVALID_TOKEN'));
+    const user = await User.findById(decoded.uid);
+    if (!user?.isActive || user.email !== decoded.email) return next(new Error('INVALID_USER'));
 
     // Adjuntar datos del usuario al socket para todos los eventos
     // Attach user data to socket for use in all event handlers
     socket.userId    = decoded.uid;   // MongoDB ObjectId string
     socket.userEmail = decoded.email;
+    socket.tokenExpiresAt = decoded.exp * 1000;
     next();
   } catch {
     next(new Error('INVALID_TOKEN'));
