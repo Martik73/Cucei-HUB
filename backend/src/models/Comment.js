@@ -34,7 +34,7 @@ CommentSchema.statics.findByPost = async function (postId, page = 1, limit = 20)
     this.countDocuments(match),
     this.aggregate([
       { $match: match },
-      { $sort: { createdAt: 1 } },
+      { $sort: { createdAt: -1 } },
       { $skip: offset },
       { $limit: limit },
       { $lookup: { from: 'users', localField: 'authorId', foreignField: '_id', as: 'authorDoc' } },
