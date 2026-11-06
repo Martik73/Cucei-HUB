@@ -1,6 +1,6 @@
 # 🎓 CUCEI HUB
 
-**Hola, Red social académica para estudiantes del Centro Universitario de Ciencias Exactas e Ingenierías (CUCEI), Universidad de Guadalajara.**
+**Red social académica para estudiantes del Centro Universitario de Ciencias Exactas e Ingenierías (CUCEI), Universidad de Guadalajara.**
 
 CUCEI HUB centraliza la vida universitaria: publicaciones por carrera, mensajería directa, evaluación de docentes y comunidades de estudio — todo restringido a correos institucionales `@alumnos.udg.mx`.
 
