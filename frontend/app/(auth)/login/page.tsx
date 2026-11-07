@@ -67,8 +67,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm">
+    <div className="flex w-full items-center justify-center">
+      <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
           <CardDescription>Ingresa con tu correo @alumnos.udg.mx</CardDescription>

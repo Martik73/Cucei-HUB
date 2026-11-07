@@ -69,7 +69,7 @@ function ProfessorsContent() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-2">
+      <div className="campus-banner flex items-center gap-3">
         <GraduationCap className="size-5 text-primary shrink-0" />
         <h1 className="text-xl font-bold">Evaluación Docente</h1>
       </div>
@@ -155,7 +155,7 @@ function ProfessorsContent() {
             <Link
               key={prof.id}
               href={`/professors/${prof.id}`}
-              className="w-full text-left flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full text-left flex items-center gap-4 p-5 rounded-2xl border bg-card shadow-sm hover:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Avatar className="size-12 shrink-0">
                 <AvatarFallback className="text-base">{initials(prof.nombre)}</AvatarFallback>

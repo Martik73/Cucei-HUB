@@ -88,6 +88,7 @@ router.get('/me', verifyToken, getProfile);
 router.put(
   '/profile',
   verifyToken,
+  require('../middleware/profilePhoto'),
   [
     body('nombre')
       .optional()
