@@ -13,8 +13,14 @@ export async function getUserProfile(userId: string): Promise<PublicUser> {
   return res.data.user;
 }
 
-export async function updateProfile(data: UpdateProfileData): Promise<User> {
-  const res = await api.put<{ message: string; user: User }>('/auth/profile', data);
+export async function updateProfile(data: UpdateProfileData, photo?: File | null, removePhoto = false): Promise<User> {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) form.append(key, String(value));
+  }
+  if (photo) form.append('photo', photo);
+  if (removePhoto) form.append('removePhoto', 'true');
+  const res = await api.put<{ message: string; user: User }>('/auth/profile', form, { headers: { 'Content-Type': undefined } });
   return res.data.user;
 }
 

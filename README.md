@@ -316,3 +316,10 @@ Los formatos de los issues y la propuesta de revisión de profesores están en `
 ## 📄 Licencia
 
 ISC — Proyecto académico. Ver `backend/package.json` para más detalles.
+
+
+### Foto de perfil
+
+En el perfil propio, pulsar el avatar abre el selector de archivos y después la vista previa en Editar perfil. La imagen se aplica al guardar; cancelar conserva la anterior. También se puede seleccionar o quitar la foto desde el diálogo.
+
+`PUT /api/auth/profile` acepta JSON para los campos existentes o multipart con `photo` (JPG, PNG o WebP, máximo 1 MB), `nombre`, `bio`, `semestre` y `removePhoto=true`. Requiere JWT y actualiza exclusivamente al usuario autenticado. El servidor comprueba la firma del formato y el tamaño. La foto se guarda como data URI en `User.profilePicture` en MongoDB, sin archivos públicos ni servicios adicionales. Para mayor escala conviene migrar las imágenes a almacenamiento de objetos y conservar únicamente su referencia en MongoDB.

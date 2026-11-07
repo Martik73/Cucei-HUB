@@ -73,7 +73,7 @@ function CommunitiesContent() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="campus-banner flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <BookOpen className="size-5 text-primary" />
           <h1 className="text-xl font-bold">Comunidades</h1>
@@ -149,7 +149,7 @@ function CommunitiesContent() {
             <button
               key={c.id}
               onClick={() => router.push(`/communities/${c.id}`)}
-              className="text-left rounded-xl border bg-card hover:bg-accent/40 p-4 space-y-2 transition-colors"
+              className="text-left rounded-2xl border border-t-4 border-t-primary/40 bg-card hover:bg-accent/40 p-5 space-y-3 shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">

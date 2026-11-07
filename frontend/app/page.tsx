@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
@@ -90,6 +91,12 @@ function FeedContent() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 space-y-4">
+      <section className="campus-banner">
+        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-primary">La vida en CUCEI, en un solo lugar</p>
+        <h1 className="relative z-10 text-2xl font-bold tracking-tight sm:text-3xl">Tu comunidad empieza aquí ✨</h1>
+        <p className="relative z-10 mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">Comparte una idea, resuelve una duda o descubre lo que está pasando en tu campus.</p>
+        <div className="relative z-10 mt-5 flex flex-wrap gap-2 text-xs font-medium"><Link href="/communities" className="rounded-full border border-border bg-card px-3 py-2 hover:bg-accent">📚 Explorar comunidades</Link><Link href="/professors" className="rounded-full border border-border bg-card px-3 py-2 hover:bg-accent">🎓 Conocer profesores</Link></div>
+      </section>
       {/* Create post */}
       <CreatePost onPostCreated={handlePostCreated} />
 

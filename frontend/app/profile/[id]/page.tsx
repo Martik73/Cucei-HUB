@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -10,7 +10,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
 import PostCard from '@/components/feed/PostCard';
 import EditProfileDialog from '@/components/profile/EditProfileDialog';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { getUserProfile, getUserPosts } from '@/lib/users';
@@ -35,6 +35,8 @@ function ProfileContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page,        setPage]        = useState(1);
   const [hasMore,     setHasMore]     = useState(false);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [editOpen,    setEditOpen]    = useState(false);
 
   const loadProfile = useCallback(async () => {
@@ -73,6 +75,8 @@ function ProfileContent() {
       setLoadingMore(false);
     }
   };
+
+  const visibleProfile = isOwnProfile && authUser ? { ...profile, ...authUser } : profile;
 
   const handlePostDelete = (id: string) =>
     setPosts((prev) => prev.filter((p) => p.id !== id));
@@ -115,19 +119,34 @@ function ProfileContent() {
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
       {/* Profile header */}
       <div className="flex gap-4 items-start">
+        <div className="shrink-0">
+          <button type="button" disabled={!isOwnProfile} aria-label={isOwnProfile ? 'Cambiar foto de perfil' : `Foto de ${profile.nombre}`} title={isOwnProfile ? 'Cambiar foto de perfil' : undefined} onClick={() => photoInput.current?.click()} className="relative rounded-full ring-offset-2 enabled:cursor-pointer enabled:hover:opacity-80 focus-visible:outline-2 focus-visible:outline-ring">
         <Avatar className="size-20 text-2xl shrink-0">
+          {visibleProfile?.profilePicture && <AvatarImage src={visibleProfile.profilePicture} alt={visibleProfile.nombre} />}
           <AvatarFallback>{initials(profile.nombre)}</AvatarFallback>
         </Avatar>
+            {isOwnProfile && <span aria-hidden="true" className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-sm"><Pencil className="size-3.5" /></span>}
+          </button>
+          {isOwnProfile && <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" aria-label="Seleccionar nueva foto" onChange={event => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (!file) return;
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 1024 * 1024) {
+              toast.error('Elige una imagen JPG, PNG o WebP de hasta 1 MB'); return;
+            }
+            setSelectedPhoto(file); setEditOpen(true);
+          }} />}
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="min-w-0">
-              <h1 className="text-xl font-bold truncate">{profile.nombre}</h1>
+              <h1 className="text-xl font-bold truncate">{visibleProfile?.nombre}</h1>
               <div className="flex gap-1.5 mt-1 flex-wrap">
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
                   {profile.carrera}
                 </span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                  Semestre {profile.semestre}
+                  Semestre {visibleProfile?.semestre}
                 </span>
               </div>
             </div>
@@ -146,8 +165,8 @@ function ProfileContent() {
             </div>
           </div>
 
-          {profile.bio && (
-            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{profile.bio}</p>
+          {visibleProfile?.bio && (
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{visibleProfile.bio}</p>
           )}
 
           <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
@@ -195,9 +214,11 @@ function ProfileContent() {
 
       {isOwnProfile && authUser && (
         <EditProfileDialog
+          key={`${editOpen}-${selectedPhoto?.name ?? ""}-${selectedPhoto?.lastModified ?? ""}`}
+          initialPhoto={selectedPhoto}
           user={authUser}
           open={editOpen}
-          onOpenChange={setEditOpen}
+          onOpenChange={value => { setEditOpen(value); if (!value) setSelectedPhoto(null); }}
         />
       )}
     </div>

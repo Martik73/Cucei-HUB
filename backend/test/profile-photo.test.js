@@ -1,0 +1,41 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { once } = require('node:events');
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const User = require('../src/models/User');
+
+test('profile photos require authentication, validate files, persist and can be removed', async t => {
+  const secret = process.env.JWT_SECRET;
+  process.env.JWT_SECRET = 'profile-photo-test';
+  const original = User.update;
+  let stored = { id: '507f1f77bcf86cd799439011', nombre: 'Alumno', password: 'hidden' };
+  User.update = async (id, values) => { assert.equal(id, stored.id); stored = { ...stored, ...values }; return stored; };
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', require('../src/routes/auth.routes'));
+  const server = app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => {
+    User.update = original;
+    if (secret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = secret;
+    await new Promise(resolve => server.close(resolve));
+  });
+  const token = jwt.sign({ uid: stored.id, email: 'test@alumnos.udg.mx' }, process.env.JWT_SECRET);
+  const send = (form, authenticated = true) => fetch(`http://127.0.0.1:${server.address().port}/api/auth/profile`, { method: 'PUT', headers: authenticated ? { Authorization: `Bearer ${token}` } : {}, body: form });
+  const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64');
+  const form = () => { const f = new FormData(); f.append('photo', new Blob([image], { type: 'image/png' }), 'avatar.png'); f.append('nombre', 'Nuevo Nombre'); return f; };
+  assert.equal((await send(form(), false)).status, 401);
+  const success = await send(form());
+  assert.equal(success.status, 200);
+  const body = await success.json();
+  assert.equal(body.user.profilePicture, `data:image/png;base64,${image.toString('base64')}`);
+  assert.equal(body.user.password, undefined);
+  const invalid = new FormData(); invalid.append('photo', new Blob(['<svg></svg>'], { type: 'image/png' }), 'fake.png');
+  assert.equal((await send(invalid)).status, 400);
+  const large = new FormData(); large.append('photo', new Blob([Buffer.alloc(1024 * 1024 + 1)]), 'large.png');
+  assert.equal((await send(large)).status, 400);
+  const remove = new FormData(); remove.append('removePhoto', 'true');
+  assert.equal((await send(remove)).status, 200);
+  assert.equal(stored.profilePicture, '');
+});

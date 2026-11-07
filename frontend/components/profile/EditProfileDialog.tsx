@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useState, useRef } from 'react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Pencil } from 'lucide-react';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -36,18 +38,34 @@ const inputCls = cn(
 
 interface Props {
   user: User;
+  initialPhoto?: File | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function EditProfileDialog({ user, open, onOpenChange }: Props) {
+export default function EditProfileDialog({ user, open, onOpenChange, initialPhoto }: Props) {
   const { updateUser } = useAuth();
+  const [photo, setPhoto] = useState<File | null>(initialPhoto ?? null);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [preview, setPreview] = useState('');
+  useEffect(() => {
+    if (!photo) return;
+    const reader = new FileReader();
+    reader.onload = () => setPreview(typeof reader.result === 'string' ? reader.result : '');
+    reader.readAsDataURL(photo);
+    return () => { reader.onload = null; if (reader.readyState === FileReader.LOADING) reader.abort(); };
+  }, [photo]);
+  const changeOpen = (value: boolean) => {
+    if (!value) { setPhoto(null); setPreview(''); setRemovePhoto(false); }
+    onOpenChange(value);
+  };
 
   const {
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -66,27 +84,51 @@ export default function EditProfileDialog({ user, open, onOpenChange }: Props) {
     });
   }, [user, reset]);
 
-  const bioValue = watch('bio') ?? '';
+  const bioValue = useWatch({ control, name: 'bio' }) ?? '';
 
   const onSubmit = async (data: FormData) => {
     try {
-      const updated = await updateProfile(data);
+      const updated = await updateProfile(data, photo, removePhoto);
       updateUser(updated);
       toast.success('Perfil actualizado');
-      onOpenChange(false);
+      changeOpen(false);
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent showCloseButton>
         <DialogHeader>
           <DialogTitle>Editar perfil</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-1">
+          <div className="flex items-center gap-4">
+            <button type="button" aria-label="Seleccionar foto de perfil" title="Cambiar foto" disabled={isSubmitting} onClick={() => photoInput.current?.click()} className="relative shrink-0 cursor-pointer rounded-full ring-offset-2 transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-ring">
+            <Avatar className="size-16">
+              {(photo ? preview : !removePhoto && user.profilePicture) && <AvatarImage src={photo ? preview : user.profilePicture} alt="Vista previa de tu foto" />}
+              <AvatarFallback>{user.nombre.slice(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+              <span aria-hidden="true" className="absolute -bottom-1 -right-1 flex size-6 items-center justify-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-sm"><Pencil className="size-3" /></span>
+            </button>
+            <div className="min-w-0 space-y-2">
+              <p className="text-sm font-medium">Foto de perfil</p>
+              <p className="text-xs text-muted-foreground">Pulsa la foto para cambiarla</p>
+              <input ref={photoInput} id="profile-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={isSubmitting} className="hidden" onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 1024 * 1024) {
+                  toast.error('Elige una imagen JPG, PNG o WebP de hasta 1 MB');
+                  event.target.value = ''; return;
+                }
+                setPhoto(file); setRemovePhoto(false);
+              }} />
+              <p className="text-xs text-muted-foreground">JPG, PNG o WebP · Máximo 1 MB</p>
+              {(photo || (!removePhoto && user.profilePicture)) && <Button type="button" variant="ghost" size="sm" disabled={isSubmitting} onClick={() => { setPhoto(null); setPreview(''); setRemovePhoto(true); }}>Quitar foto</Button>}
+            </div>
+          </div>
           {/* Nombre */}
           <div className="space-y-1">
             <label className="text-xs font-medium">Nombre completo</label>
@@ -149,7 +191,7 @@ export default function EditProfileDialog({ user, open, onOpenChange }: Props) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => changeOpen(false)}
               disabled={isSubmitting}
             >
               Cancelar

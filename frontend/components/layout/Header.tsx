@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import InstitutionalBrand from './InstitutionalBrand';
 import { useRouter } from 'next/navigation';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -29,17 +30,18 @@ export default function Header() {
   const router = useRouter();
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
-      <Link href="/" className="flex items-center gap-1.5 font-bold text-lg mr-6">
-        <span className="text-primary">CUCEI</span>
-        <span>HUB</span>
+    <header className="sticky top-0 z-40 flex h-18 shrink-0 items-center border-b border-border bg-card px-4 md:px-6">
+      <Link href="/" className="flex items-center gap-2 font-bold text-xl mr-3 shrink-0">
+        <InstitutionalBrand />
       </Link>
 
       <div className="flex flex-1 items-center justify-end">
         {user && (
           <DropdownMenu>
             <DropdownMenuTrigger aria-label="Menú de usuario" className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer">
+              <span className="hidden text-right sm:block"><span className="block text-sm font-semibold">{user.nombre}</span><span className="block text-xs text-muted-foreground">Mi espacio</span></span>
               <Avatar>
+                {user.profilePicture && <AvatarImage src={user.profilePicture} alt={user.nombre} />}
                 <AvatarFallback>{getInitials(user.nombre)}</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
