@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { MoreHorizontal, Pencil, Trash2, MessageCircle } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, MessageCircle, Flag } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { reactToPost, updatePost, deletePost } from '@/lib/posts';
@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import Comments from './Comments';
+import ReportModal from '@/components/ui/ReportModal';
 
 const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
   { type: 'like',      emoji: '👍', label: 'Me gusta'  },
@@ -60,6 +61,9 @@ export default function PostCard({ post, onDelete, onUpdate }: Props) {
   const [isEditing,    setIsEditing]    = useState(false);
   const [editContent,  setEditContent]  = useState(post.content);
   const [savingEdit,   setSavingEdit]   = useState(false);
+  
+  // Estado para controlar el modal de reporte
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const isAuthor = user?.id === post.authorId;
 
@@ -155,24 +159,32 @@ export default function PostCard({ post, onDelete, onUpdate }: Props) {
             </div>
           </div>
 
-          {isAuthor && (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-36">
-                <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                  <Pencil className="size-4" />
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-                  <Trash2 className="size-4" />
-                  Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          {/* Menú de opciones de la tarjeta (Autor: Editar/Eliminar, Todos: Reportar) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <MoreHorizontal className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-36">
+              {isAuthor && (
+                <>
+                  <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                    <Pencil className="size-4" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={handleDelete}>
+                    <Trash2 className="size-4" />
+                    Eliminar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem onClick={() => setShowReportModal(true)}>
+                <Flag className="size-4 text-red-500" />
+                Reportar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Content */}
@@ -252,6 +264,15 @@ export default function PostCard({ post, onDelete, onUpdate }: Props) {
             onCommentAdded={() => setCommentCount((c) => c + 1)}
           />
         </div>
+      )}
+
+      {/* Modal de Reporte */}
+      {showReportModal && (
+        <ReportModal
+          targetType="post"
+          targetId={post.id}
+          onClose={() => setShowReportModal(false)}
+        />
       )}
     </article>
   );
