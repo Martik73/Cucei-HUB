@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getMessages, sendMessage } from '@/lib/communities';
 import { getErrorMessage } from '@/lib/api';
+import ReportModal from '@/components/ui/ReportModal';
 import type { CommunityMessage } from '@/types';
 
 interface Props {
@@ -37,6 +38,10 @@ function DiscussionContent({ communityId, isMember, currentUserId }: Props) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  
+  // Estado para el reporte del mensaje actual
+  const [reportingMessageId, setReportingMessageId] = useState<string | null>(null);
+
   const olderRequest = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -141,17 +146,29 @@ function DiscussionContent({ communityId, isMember, currentUserId }: Props) {
         ) : (
           messages.map((msg) => {
             const isMe = msg.userId === currentUserId;
+            const msgId = msg.id || (msg as any)._id;
+
             return (
-              <div key={msg.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
+              <div key={msgId} className={`flex gap-3 group ${isMe ? 'flex-row-reverse' : ''}`}>
                 <Avatar className="size-8 shrink-0">
                   <AvatarFallback className="text-xs">{initials(msg.userNombre)}</AvatarFallback>
                 </Avatar>
-                <div className={`max-w-[75%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
+                <div className={`max-w-[75%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-0.5 relative`}>
                   <div className="flex items-center gap-2">
                     {!isMe && <span className="text-xs font-medium">{msg.userNombre}</span>}
                     <span className="text-xs text-muted-foreground">
                       {format(new Date(msg.createdAt), 'd MMM, HH:mm', { locale: es })}
                     </span>
+                    
+                    {/* Botón de reportar que aparece al pasar el cursor sobre el mensaje */}
+                    <button
+                      type="button"
+                      onClick={() => setReportingMessageId(msgId)}
+                      className="text-[11px] text-zinc-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100 font-medium ml-1"
+                      title="Reportar mensaje"
+                    >
+                      Reportar
+                    </button>
                   </div>
                   <div className={`rounded-2xl px-3 py-2 text-sm ${isMe ? 'bg-primary text-primary-foreground rounded-tr-sm' : 'bg-muted rounded-tl-sm'}`}>
                     {msg.content}
@@ -163,6 +180,15 @@ function DiscussionContent({ communityId, isMember, currentUserId }: Props) {
         )}
         <div ref={bottomRef} />
       </div>
+
+      {/* Modal de Reporte para la discusión */}
+      {reportingMessageId && (
+        <ReportModal
+          targetType="comment"
+          targetId={reportingMessageId}
+          onClose={() => setReportingMessageId(null)}
+        />
+      )}
 
       {/* Input */}
       {isMember ? (
