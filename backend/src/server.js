@@ -19,6 +19,7 @@ const professorRoutes  = require('./routes/professor.routes');
 const subjectRoutes    = require('./routes/subject.routes');
 const communityRoutes  = require('./routes/community.routes');
 const materialRoutes = require('./routes/material.routes');
+const reportRoutes   = require('./routes/report.routes');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -55,6 +56,7 @@ app.use('/api/professors',  professorRoutes);
 app.use('/api/subjects',    subjectRoutes);
 app.use('/api/communities', communityRoutes);
 app.use('/api/materials', materialRoutes);
+app.use('/api/reports',   reportRoutes);
 
 // ─── Manejo de rutas no encontradas ──────────────────────────────────────────
 app.use((req, res) => {
