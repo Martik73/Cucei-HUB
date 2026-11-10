@@ -101,8 +101,8 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
-      <Card className="w-full max-w-sm">
+    <div className="flex w-full items-center justify-center py-8">
+      <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Crear cuenta</CardTitle>
           <CardDescription>Regístrate con tu correo @alumnos.udg.mx</CardDescription>

@@ -93,11 +93,15 @@ const updateProfile = async (req, res) => {
     updates.semestre = s;
   }
 
+  if (req.profilePicture) updates.profilePicture = req.profilePicture;
+  else if (req.body.removePhoto === 'true') updates.profilePicture = '';
+
   if (Object.keys(updates).length === 0)
     return res.status(400).json({ message: 'No hay campos para actualizar' });
 
   try {
     const updated = await User.update(userId, updates);
+    if (!updated) return res.status(404).json({ message: 'Usuario no encontrado' });
     return res.status(200).json({ message: 'Perfil actualizado exitosamente', user: User.toPublic(updated) });
   } catch (error) {
     console.error('Error en updateProfile:', error);

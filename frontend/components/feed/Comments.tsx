@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import type { Comment } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import ReportModal from '@/components/ui/ReportModal';
 
 function initials(nombre: string) {
   return nombre.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase();
@@ -30,6 +31,8 @@ export default function Comments({ postId, onCommentAdded }: Props) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
 
   const load = useCallback(
     async (p: number, append = false) => {
@@ -59,7 +62,6 @@ export default function Comments({ postId, onCommentAdded }: Props) {
     setSubmitting(true);
     try {
       const comment = await addComment(postId, trimmed);
-      // Enrich with current user data
       const enriched: Comment = {
         ...comment,
         authorNombre: user?.nombre ?? 'Tú',
@@ -83,7 +85,6 @@ export default function Comments({ postId, onCommentAdded }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Input */}
       {user && (
         <div className="flex items-center gap-2">
           <Avatar size="sm">
@@ -106,7 +107,6 @@ export default function Comments({ postId, onCommentAdded }: Props) {
         </div>
       )}
 
-      {/* List */}
       {loading ? (
         <div className="space-y-2">
           {[0, 1].map((i) => (
@@ -125,22 +125,36 @@ export default function Comments({ postId, onCommentAdded }: Props) {
         </p>
       ) : (
         <ul className="space-y-2">
-          {comments.map((c) => (
-            <li key={c.id} className="flex gap-2">
-              <Avatar size="sm">
-                <AvatarFallback>{initials(c.authorNombre ?? 'U')}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 rounded-lg bg-muted px-3 py-2 text-sm">
-                <div className="flex items-baseline gap-2 mb-0.5">
-                  <span className="text-xs font-medium">{c.authorNombre}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: es })}
-                  </span>
+          {comments.map((c) => {
+            const commentId = c.id || (c as any)._id;
+
+            return (
+              <li key={commentId} className="flex gap-2 group">
+                <Avatar size="sm">
+                  <AvatarFallback>{initials(c.authorNombre ?? 'U')}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 rounded-lg bg-muted px-3 py-2 text-sm relative">
+                  <div className="flex items-baseline justify-between gap-2 mb-0.5">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xs font-medium">{c.authorNombre}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true, locale: es })}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => setReportingCommentId(commentId)}
+                      className="text-[10px] text-zinc-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                      title="Reportar comentario"
+                    >
+                      Reportar
+                    </button>
+                  </div>
+                  <p className="whitespace-pre-wrap">{c.content}</p>
                 </div>
-                <p className="whitespace-pre-wrap">{c.content}</p>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -152,6 +166,15 @@ export default function Comments({ postId, onCommentAdded }: Props) {
         >
           {loadingMore ? 'Cargando…' : 'Ver más comentarios'}
         </button>
+      )}
+
+      {/* Modal de reporte configurado explícitamente para comentarios */}
+      {reportingCommentId && (
+        <ReportModal
+          targetType="comment" 
+          targetId={reportingCommentId}
+          onClose={() => setReportingCommentId(null)}
+        />
       )}
     </div>
   );

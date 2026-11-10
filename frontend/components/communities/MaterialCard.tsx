@@ -8,6 +8,7 @@ import { es } from 'date-fns/locale';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { deleteMaterial, extractYoutubeId, getMaterialFile } from '@/lib/communities';
 import { getErrorMessage } from '@/lib/api';
+import ReportModal from '@/components/ui/ReportModal';
 import type { Material } from '@/types';
 
 interface Props {
@@ -23,16 +24,18 @@ function initials(name: string) {
 export default function MaterialCard({ material, currentUserId, onDeleted }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [loadingFile, setLoadingFile] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const isOwner = material.uploaderId === currentUserId;
+  const materialId = material.id || (material as any)._id;
   const date = format(new Date(material.createdAt), 'd MMM yyyy', { locale: es });
 
   const handleDelete = async () => {
     if (!confirm('¿Eliminar este material?')) return;
     setDeleting(true);
     try {
-      await deleteMaterial(material.id);
+      await deleteMaterial(materialId);
       toast.success('Material eliminado');
-      onDeleted(material.id);
+      onDeleted(materialId);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -46,7 +49,7 @@ export default function MaterialCard({ material, currentUserId, onDeleted }: Pro
     if (preview) preview.opener = null;
     setLoadingFile(true);
     try {
-      const file = await getMaterialFile(material.id);
+      const file = await getMaterialFile(materialId);
       const url = URL.createObjectURL(new Blob([file], { type: 'application/pdf' }));
       if (!download && preview) {
         preview.location.replace(url);
@@ -73,7 +76,7 @@ export default function MaterialCard({ material, currentUserId, onDeleted }: Pro
     : null;
 
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
+    <div className="rounded-xl border bg-card overflow-hidden relative group">
       {/* Video embed */}
       {material.tipo === 'youtube' && videoId && (
         <div className="aspect-video w-full bg-black">
@@ -107,16 +110,29 @@ export default function MaterialCard({ material, currentUserId, onDeleted }: Pro
             )}
           </div>
 
-          {isOwner && (
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Botón de reportar que aparece al pasar el cursor */}
             <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="text-muted-foreground hover:text-destructive transition-colors shrink-0 p-1 rounded"
-              title="Eliminar"
+              type="button"
+              onClick={() => setReporting(true)}
+              className="text-[11px] text-zinc-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100 font-medium"
+              title="Reportar material"
             >
-              <Trash2 className="size-4" />
+              Reportar
             </button>
-          )}
+
+            {isOwner && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+                title="Eliminar"
+              >
+                <Trash2 className="size-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
@@ -164,6 +180,15 @@ export default function MaterialCard({ material, currentUserId, onDeleted }: Pro
           )}
         </div>
       </div>
+
+      {/* Modal de Reporte */}
+      {reporting && (
+        <ReportModal
+          targetType="material"
+          targetId={materialId}
+          onClose={() => setReporting(false)}
+        />
+      )}
     </div>
   );
 }

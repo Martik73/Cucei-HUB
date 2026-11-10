@@ -132,3 +132,20 @@ test('PDF cards expose authenticated actions instead of public upload links', ()
   assert.equal((html.match(/<button\b/g) || []).length, 2);
   assert.match(html, /Descargar/);
 });
+
+
+test('profile editing sends the photo as multipart instead of serializing it as JSON', async () => {
+  const cache = new Map();
+  const users = load('lib/users.ts', {}, cache);
+  const api = load('lib/api.ts', {}, cache).default;
+  const photo = new File(['photo-content'], 'photo.png', { type: 'image/png' });
+  api.defaults.adapter = async config => {
+    assert.equal(config.url, '/auth/profile');
+    assert.ok(config.data instanceof FormData);
+    assert.equal(config.data.get('nombre'), 'Alumno');
+    assert.equal(config.data.get('photo').name, 'photo.png');
+    assert.notEqual(config.headers['Content-Type'], 'application/json');
+    return { data: { user: { id: 'user', nombre: 'Alumno' } }, status: 200, statusText: 'OK', headers: {}, config };
+  };
+  assert.equal((await users.updateProfile({ nombre: 'Alumno' }, photo)).id, 'user');
+});
